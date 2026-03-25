@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Masters Pool">
+<meta name="apple-mobile-web-app-title" content="PGA Test">
 <meta name="theme-color" content="#F5EFE0">
-<title>Masters Pool 2026</title>
+<title>PGA Pool Test</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -298,8 +298,8 @@ body::before{content:'';position:fixed;inset:0;background:
     <div class="header-avatar" id="avatarBtn" onclick="toggleIdentityDropdown()">
       <span id="avatarText">?</span>
     </div>
-    <div class="header-title">The Masters Pool</div>
-    <div class="header-sub">Augusta 2026</div>
+    <div class="header-title">Houston Open Pool</div>
+    <div class="header-sub">Test · März 2026</div>
     <div class="live-badge stale" id="liveBadge" style="display:none"><div class="live-dot"></div><span id="liveText">Live</span></div>
     <button class="header-admin" id="btnAdmin" onclick="toggleAdmin()">
       <svg viewBox="0 0 24 24"><path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -501,7 +501,7 @@ const ESPN_GOLF_URL = 'https://site.api.espn.com/apis/site/v2/sports/golf/pga/sc
 const LIVE_REFRESH_MS = 120000; // 2 minutes
 
 /* ===================== Supabase ===================== */
-const sb = supabase.createClient('__SUPA_URL__', '__SUPA_KEY__');
+const sb = supabase.createClient('https://wmqmufxyovfhxorzvrzn.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndtcW11Znh5b3ZmaHhvcnp2cnpuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI4MjMxMTIsImV4cCI6MjA4ODM5OTExMn0.Q3yViDCbriTPgzJiHQBDd52m7skULMAYf7PrYr2Uais');
 
 /* ===================== State ===================== */
 let S = {
@@ -524,7 +524,7 @@ let S = {
   liveTimer: null,
   liveActive: false,
   // Masters field
-  mastersField: [],      // [{name, country, rank}] from ESPN
+  pgaTestField: [],      // [{name, country, rank}] from ESPN
   fieldLoaded: false
 };
 
@@ -535,11 +535,11 @@ async function init() {
     setAdmin(true, session.user.id);
   } else {
     // Auto-login for testing
-    const { data, error } = await sb.auth.signInWithPassword({ email: '__ADMIN_EMAIL__', password: '__ADMIN_PASS__' });
+    const { data, error } = await sb.auth.signInWithPassword({ email: 'habeler.markus@gmail.com', password: 'Golfer97!' });
     if (!error && data.user) setAdmin(true, data.user.id);
   }
   // Restore identity from localStorage
-  S.myName = localStorage.getItem('masters_pool_identity') || '';
+  S.myName = localStorage.getItem('pga_test_identity') || '';
   await loadAll();
   updateIdentityBar();
   render();
@@ -547,8 +547,8 @@ async function init() {
 
 function setIdentity(name) {
   S.myName = name;
-  if (name) localStorage.setItem('masters_pool_identity', name);
-  else localStorage.removeItem('masters_pool_identity');
+  if (name) localStorage.setItem('pga_test_identity', name);
+  else localStorage.removeItem('pga_test_identity');
   closeIdentityDropdown();
   render();
 }
@@ -600,10 +600,10 @@ function setAdmin(yes, uid) {
 /* ===================== Data Loading ===================== */
 async function loadAll() {
   const [p, g, s, b] = await Promise.all([
-    sb.from('masters_participants').select('*').order('draft_position', { ascending: true, nullsFirst: false }),
-    sb.from('masters_golfers').select('*').order('draft_round').order('draft_pick'),
-    sb.from('masters_scores').select('*'),
-    sb.from('masters_bonuses').select('*')
+    sb.from('pga_test_participants').select('*').order('draft_position', { ascending: true, nullsFirst: false }),
+    sb.from('pga_test_golfers').select('*').order('draft_round').order('draft_pick'),
+    sb.from('pga_test_scores').select('*'),
+    sb.from('pga_test_bonuses').select('*')
   ]);
   S.participants = p.data || [];
   S.golfers = g.data || [];
@@ -1062,7 +1062,7 @@ function renderDraft() {
   // Field status
   if (S.fieldLoaded) {
     const drafted = S.golfers.length;
-    const total = S.mastersField.length;
+    const total = S.pgaTestField.length;
     html += `<div style="font-size:12px;color:var(--text2);margin:12px 0 4px;padding-left:4px">Masters Feld: ${total} Spieler geladen &middot; ${drafted} gedraftet</div>`;
   }
 
@@ -1190,7 +1190,7 @@ async function addParticipant() {
   const name = document.getElementById('inputParticipantName').value.trim();
   if (!name) return;
   const pos = S.participants.length + 1;
-  const { error } = await sb.from('masters_participants').insert({ user_id: S.userId, name, draft_position: pos });
+  const { error } = await sb.from('pga_test_participants').insert({ user_id: S.userId, name, draft_position: pos });
   if (error) { showToast('Fehler: ' + error.message); return; }
   document.getElementById('inputParticipantName').value = '';
   closeModal('modalParticipant');
@@ -1201,7 +1201,7 @@ async function addParticipant() {
 
 async function removeParticipant(id) {
   if (!confirm('Mitspieler wirklich entfernen?')) return;
-  await sb.from('masters_participants').delete().eq('id', id);
+  await sb.from('pga_test_participants').delete().eq('id', id);
   await loadAll();
   render();
   showToast('Entfernt');
@@ -1210,7 +1210,7 @@ async function removeParticipant(id) {
 async function updateDraftPosition(id, value) {
   const pos = parseInt(value);
   if (isNaN(pos) || pos < 1) return;
-  await sb.from('masters_participants').update({ draft_position: pos }).eq('id', id);
+  await sb.from('pga_test_participants').update({ draft_position: pos }).eq('id', id);
   await loadAll();
   render();
 }
@@ -1223,7 +1223,7 @@ async function randomizeDraftOrder() {
     [ids[i], ids[j]] = [ids[j], ids[i]];
   }
   for (let i = 0; i < ids.length; i++) {
-    await sb.from('masters_participants').update({ draft_position: i + 1 }).eq('id', ids[i]);
+    await sb.from('pga_test_participants').update({ draft_position: i + 1 }).eq('id', ids[i]);
   }
   await loadAll();
   render();
@@ -1263,7 +1263,7 @@ async function addDraftPick() {
   const round = parseInt(document.getElementById('selectDraftRound').value);
   if (!name || !pid) return;
   const existingInRound = S.golfers.filter(g => g.draft_round === round).length;
-  const { error } = await sb.from('masters_golfers').insert({
+  const { error } = await sb.from('pga_test_golfers').insert({
     user_id: S.userId, name, participant_id: pid,
     draft_round: round, draft_pick: existingInRound + 1
   });
@@ -1278,13 +1278,13 @@ async function saveScore(golferId, round, value) {
   const score = parseInt(value);
   if (isNaN(score)) {
     // Delete existing score
-    await sb.from('masters_scores').delete().eq('golfer_id', golferId).eq('round', round);
+    await sb.from('pga_test_scores').delete().eq('golfer_id', golferId).eq('round', round);
   } else {
     const existing = S.scores.find(s => s.golfer_id === golferId && s.round === round);
     if (existing) {
-      await sb.from('masters_scores').update({ score }).eq('id', existing.id);
+      await sb.from('pga_test_scores').update({ score }).eq('id', existing.id);
     } else {
-      await sb.from('masters_scores').insert({ user_id: S.userId, golfer_id: golferId, round, score });
+      await sb.from('pga_test_scores').insert({ user_id: S.userId, golfer_id: golferId, round, score });
     }
   }
   await loadAll();
@@ -1295,7 +1295,7 @@ async function saveScore(golferId, round, value) {
 async function toggleCut(golferId) {
   const g = S.golfers.find(x => x.id === golferId);
   if (!g) return;
-  await sb.from('masters_golfers').update({ made_cut: !g.made_cut }).eq('id', golferId);
+  await sb.from('pga_test_golfers').update({ made_cut: !g.made_cut }).eq('id', golferId);
   await loadAll();
   render();
 }
@@ -1331,7 +1331,7 @@ async function addBonus() {
   // Find participant from golfer
   const golfer = S.golfers.find(g => g.id === golferId);
   const pid = golfer ? golfer.participant_id : null;
-  const { error } = await sb.from('masters_bonuses').insert({
+  const { error } = await sb.from('pga_test_bonuses').insert({
     user_id: S.userId, golfer_id: golferId, participant_id: pid,
     bonus_type: type, shots
   });
@@ -1343,7 +1343,7 @@ async function addBonus() {
 }
 
 async function removeBonus(id) {
-  await sb.from('masters_bonuses').delete().eq('id', id);
+  await sb.from('pga_test_bonuses').delete().eq('id', id);
   await loadAll();
   render();
   showToast('Bonus entfernt');
@@ -1381,9 +1381,9 @@ function esc(s) {
 async function fetchMastersField() {
   // 1. Try Supabase first (pre-seeded field, available before tournament)
   try {
-    const { data, error } = await sb.from('masters_field').select('name, country').order('name');
+    const { data, error } = await sb.from('pga_test_field').select('name, country').order('name');
     if (!error && data && data.length > 0) {
-      S.mastersField = data;
+      S.pgaTestField = data;
       S.fieldLoaded = true;
       return;
     }
@@ -1416,7 +1416,7 @@ async function fetchMastersField() {
     }
     if (field.length === 0) return;
     field.sort((a, b) => a.name.localeCompare(b.name));
-    S.mastersField = field;
+    S.pgaTestField = field;
     S.fieldLoaded = true;
   } catch (err) {
     console.warn('ESPN field fetch failed:', err);
@@ -1425,7 +1425,7 @@ async function fetchMastersField() {
 
 function getAvailableField() {
   const drafted = new Set(S.golfers.map(g => normalizeName(g.name)));
-  return S.mastersField.map(p => ({
+  return S.pgaTestField.map(p => ({
     ...p,
     isDrafted: drafted.has(normalizeName(p.name))
   }));
