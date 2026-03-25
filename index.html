@@ -155,6 +155,7 @@ body::before{content:'';position:fixed;inset:0;background:
 .golfer-rd.birdie{color:var(--birdie)}
 .golfer-rd.bogey{color:var(--bogey)}
 .golfer-rd.eagle{color:var(--eagle)}
+.golfer-rd.in-progress{border:1.5px dashed var(--gold);background:rgba(200,169,81,.08);font-style:italic}
 .golfer-cut{font-size:10px;color:var(--red);font-weight:600;margin-left:8px}
 .round-headers{display:flex;justify-content:flex-end;gap:6px;padding:0 14px 6px;font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px}
 .round-headers span{width:36px;text-align:center}
@@ -625,6 +626,14 @@ function getGolferScore(golferId, round) {
   return null;
 }
 
+function isScoreLiveInProgress(golferId, round) {
+  const manual = S.scores.find(x => x.golfer_id === golferId && x.round === round);
+  if (manual) return false;
+  const golfer = S.golfers.find(g => g.id === golferId);
+  if (golfer && golfer._live && golfer._live['r' + round + '_live']) return true;
+  return false;
+}
+
 function calcTeamRoundScore(participantId, round) {
   const teamGolfers = S.golfers.filter(g => g.participant_id === participantId);
   const count = (round <= 2) ? 4 : 3;
@@ -907,7 +916,8 @@ function renderLeaderboard() {
             const rel = sc !== null ? sc - PAR : null;
             const sCls = scoreClass(rel);
             const counting = countingMap[g.id + '_' + r];
-            return `<div class="golfer-rd ${sCls}" style="${counting ? 'background:rgba(0,103,71,.08);font-weight:700' : ''}">${sc !== null ? sc : '—'}</div>`;
+            const inProg = isScoreLiveInProgress(g.id, r);
+            return `<div class="golfer-rd ${sCls}${inProg ? ' in-progress' : ''}" style="${counting ? 'background:rgba(0,103,71,.08);font-weight:700' : ''}">${sc !== null ? sc : '—'}</div>`;
           }).join('');
           return `<div class="golfer-row ${isCut ? 'cut' : ''}">
             <div class="golfer-name">${esc(g.name)}</div>
@@ -927,7 +937,7 @@ function renderLeaderboard() {
             <div class="golfer-name" style="${counting ? 'color:var(--green);font-weight:600' : ''}">${esc(g.name)}</div>
             <div style="display:flex;align-items:center;gap:6px">
               ${thru ? `<span style="font-size:10px;color:var(--text3)">${thru}</span>` : ''}
-              <div class="golfer-rd ${sCls}" style="${counting ? 'background:rgba(0,103,71,.08);font-weight:700' : ''}">${sc !== null ? fmtScore(rel) : '—'}</div>
+              <div class="golfer-rd ${sCls}${isScoreLiveInProgress(g.id, rd) ? ' in-progress' : ''}" style="${counting ? 'background:rgba(0,103,71,.08);font-weight:700' : ''}">${sc !== null ? fmtScore(rel) : '—'}</div>
             </div>
             ${isCut ? '<div class="golfer-cut">CUT</div>' : ''}
           </div>`;
@@ -1009,7 +1019,8 @@ function renderTeams() {
           const rel = sc !== null ? sc - PAR : null;
           const cls = scoreClass(rel);
           const counting = countingMap[g.id + '_' + r];
-          return `<div class="golfer-rd ${cls}" style="${counting ? 'background:rgba(0,103,71,.08);font-weight:700' : ''}">${sc !== null ? sc : '—'}</div>`;
+          const inProg = isScoreLiveInProgress(g.id, r);
+          return `<div class="golfer-rd ${cls}${inProg ? ' in-progress' : ''}" style="${counting ? 'background:rgba(0,103,71,.08);font-weight:700' : ''}">${sc !== null ? sc : '—'}</div>`;
         }).join('');
         const thruHtml = (g._live && g._live.thru && !isCut) ? `<div style="font-size:10px;color:var(--text3);margin-left:6px;white-space:nowrap">${g._live.thru}</div>` : '';
         return `<div class="golfer-row ${cutCls}">
@@ -1534,10 +1545,14 @@ async function fetchLiveScores() {
 
       const linescores = c.linescores || [];
       const roundScores = {};
+      let completedToPar = 0;
+      let lastCompletedRound = 0;
       for (let i = 0; i < linescores.length && i < 4; i++) {
         const val = linescores[i].value;
         if (val !== undefined && val !== null && val > 0) {
           roundScores['r' + (i + 1)] = val;
+          completedToPar += (val - PAR);
+          lastCompletedRound = i + 1;
         }
       }
 
@@ -1545,10 +1560,19 @@ async function fetchLiveScores() {
       const status = c.status || {};
       const thru = status.displayValue || '';
       const statusType = status.type?.name || '';
+      const totalToPar = c.score === 'E' ? 0 : parseInt(c.score) || 0;
+
+      // Estimate in-progress round score from toPar
+      const currentRound = lastCompletedRound + 1;
+      if (currentRound <= 4 && thru && thru !== 'F' && statusType !== 'cut') {
+        const currentRoundToPar = totalToPar - completedToPar;
+        roundScores['r' + currentRound] = PAR + currentRoundToPar;
+        roundScores['r' + currentRound + '_live'] = true; // mark as in-progress
+      }
 
       scores[name] = {
         ...roundScores,
-        toPar: parseInt(c.score) || 0,
+        toPar: totalToPar,
         thru: thru,
         status: statusType,
         madeCut: statusType !== 'cut'
