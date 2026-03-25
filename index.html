@@ -531,9 +531,13 @@ let S = {
 /* ===================== Init ===================== */
 async function init() {
   const { data: { session } } = await sb.auth.getSession();
-  if (session) setAdmin(true, session.user.id);
-  // Auto-admin for testing
-  setAdmin(true, session?.user?.id || 'test-admin');
+  if (session) {
+    setAdmin(true, session.user.id);
+  } else {
+    // Auto-login for testing
+    const { data, error } = await sb.auth.signInWithPassword({ email: '__ADMIN_EMAIL__', password: '__ADMIN_PASS__' });
+    if (!error && data.user) setAdmin(true, data.user.id);
+  }
   // Restore identity from localStorage
   S.myName = localStorage.getItem('masters_pool_identity') || '';
   await loadAll();
