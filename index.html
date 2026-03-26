@@ -1660,8 +1660,7 @@ function startLiveRefresh() {
 
 
 /* ===================== Start ===================== */
-init();
-startLiveRefresh();
+init().then(() => startLiveRefresh());
 </script>
 </body>
 </html>
