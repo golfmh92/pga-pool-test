@@ -495,7 +495,7 @@ body::before{content:'';position:fixed;inset:0;background:
 
 <script>
 /* ===================== Constants ===================== */
-const PAR = 72;
+const PAR = 70; // Memorial Park Golf Course, Houston
 const ENTRY_FEE = 20;
 const ESPN_GOLF_URL = 'https://site.api.espn.com/apis/site/v2/sports/golf/pga/scoreboard';
 const LIVE_REFRESH_MS = 120000; // 2 minutes
@@ -1581,9 +1581,12 @@ async function fetchLiveScores() {
       const linescores = c.linescores || [];
       const roundScores = {};
       for (let i = 0; i < linescores.length && i < 4; i++) {
-        const val = linescores[i].value;
-        if (val !== undefined && val !== null && val > 0) {
-          roundScores['r' + (i + 1)] = val;
+        const dv = linescores[i].displayValue;
+        if (dv !== undefined && dv !== null) {
+          const roundToPar = dv === 'E' ? 0 : parseInt(dv);
+          if (!isNaN(roundToPar)) {
+            roundScores['r' + (i + 1)] = PAR + roundToPar;
+          }
         }
       }
 
