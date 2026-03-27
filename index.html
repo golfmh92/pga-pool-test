@@ -1487,7 +1487,8 @@ function renderTournament() {
     // Round scores display
     const rounds = [1,2,3,4].map(r => {
       if (p.data.currentRound === r && !p.data.finished) {
-        return `<span style="font-size:10px;color:#E63946;font-weight:600">${fmtScore(p.data.toPar)}<span style="font-size:8px;color:var(--text3);font-weight:400;display:block">${p.data.thru}</span></span>`;
+        const liveColor = p.data.toPar < 0 ? '#E63946' : p.data.toPar === 0 ? '#2563EB' : '#000';
+        return `<span style="font-size:10px;color:${liveColor};font-weight:600">${fmtScore(p.data.toPar)}<span style="font-size:8px;color:var(--text3);font-weight:400;display:block">${p.data.thru}</span></span>`;
       }
       const sc = p.data['r' + r];
       if (!sc) return '<span style="color:var(--text3)">\u2014</span>';
@@ -1497,17 +1498,17 @@ function renderTournament() {
 
     const teamBadge = p.team ? `<div style="font-size:10px;color:var(--gold);margin-top:1px">${esc(p.team)}</div>` : '';
 
-    return `<div class="lb-entry" style="cursor:pointer" onclick="showScorecardByName('${esc(p.name)}')">
-      <div class="lb-rank">${rank}</div>
-      <div class="lb-info" style="min-width:0">
-        <div class="lb-name">${esc(p.name)}</div>
+    return `<div class="lb-entry" style="cursor:pointer;flex-wrap:nowrap" onclick="showScorecardByName('${esc(p.name)}')">
+      <div class="lb-rank" style="width:32px;flex-shrink:0">${rank}</div>
+      <div style="flex:1;min-width:0;overflow:hidden">
+        <div style="font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(p.name)}</div>
         ${teamBadge}
       </div>
-      <div style="display:flex;gap:6px;align-items:center;font-size:12px">
-        ${rounds.map(r => `<div style="width:30px;text-align:center">${r}</div>`).join('')}
+      <div style="display:flex;gap:4px;align-items:center;font-size:12px;flex-shrink:0">
+        ${rounds.map(r => `<div style="width:28px;text-align:center">${r}</div>`).join('')}
       </div>
-      <div class="lb-score">
-        <div class="lb-total ${scoreCls}">${fmtScore(p.data.toPar)}</div>
+      <div style="width:44px;text-align:right;flex-shrink:0">
+        <div class="lb-total ${scoreCls}" style="font-size:20px">${fmtScore(p.data.toPar)}</div>
       </div>
     </div>`;
   }).join('');
