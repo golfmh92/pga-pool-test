@@ -1706,40 +1706,48 @@ async function fetchLiveScores() {
 
       const linescores = c.linescores || [];
       const roundScores = {};
-      for (let i = 0; i < linescores.length && i < 4; i++) {
-        const dv = linescores[i].displayValue;
-        if (dv !== undefined && dv !== null) {
-          const roundToPar = dv === 'E' ? 0 : parseInt(dv);
-          if (!isNaN(roundToPar)) {
-            roundScores['r' + (i + 1)] = PAR + roundToPar;
-          }
-        }
-      }
-
-      // Hole-by-hole data
       const holes = {};
+      let currentRound = 0;
+      let finished = true;
+      let thruHoles = '';
+
       for (let i = 0; i < linescores.length && i < 4; i++) {
-        const roundHoles = linescores[i].linescores || [];
-        if (roundHoles.length > 0) {
+        const roundData = linescores[i];
+        const dv = roundData.displayValue;
+        const roundHoles = roundData.linescores || [];
+        const holesPlayed = roundHoles.length;
+
+        // Store hole-by-hole data
+        if (holesPlayed > 0) {
           holes['r' + (i + 1)] = roundHoles.map(h => ({
             hole: h.period,
             score: h.value,
             par: h.scoreType ? h.scoreType.displayValue : null
           }));
         }
+
+        if (dv !== undefined && dv !== null) {
+          const roundToPar = dv === 'E' ? 0 : parseInt(dv);
+          if (!isNaN(roundToPar)) {
+            if (holesPlayed >= 18) {
+              // Round complete — store final score
+              roundScores['r' + (i + 1)] = PAR + roundToPar;
+            } else if (holesPlayed > 0) {
+              // Mid-round — don't store as final score
+              currentRound = i + 1;
+              finished = false;
+              thruHoles = holesPlayed + 'H';
+            }
+          }
+        }
       }
 
       // Status/thru info
       const status = c.status || {};
-      const thru = status.displayValue || '';
+      const statusThru = status.displayValue || '';
       const statusType = status.type?.name || '';
       const totalToPar = c.score === 'E' ? 0 : parseInt(c.score) || 0;
-
-      // Determine current round and if finished
-      let lastFinishedRound = 0;
-      for (let i = 1; i <= 4; i++) { if (roundScores['r' + i]) lastFinishedRound = i; }
-      const finished = thru === 'F' || thru === '' || statusType === 'cut';
-      const currentRound = finished ? lastFinishedRound : lastFinishedRound + 1;
+      const thru = statusThru || thruHoles;
 
       scores[name] = {
         ...roundScores,
