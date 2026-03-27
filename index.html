@@ -160,11 +160,11 @@ body::before{content:'';position:fixed;inset:0;background:
 .scorecard th{background:var(--bg2);padding:6px 4px;text-align:center;font-weight:600;color:var(--text2);font-size:10px}
 .scorecard td{padding:6px 4px;text-align:center;border-bottom:1px solid var(--border)}
 .scorecard .hole-num{color:var(--text3);font-size:10px}
-.scorecard .sc-birdie{color:#fff;background:var(--birdie);border-radius:50%;width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;font-weight:600}
-.scorecard .sc-eagle{color:#fff;background:var(--eagle);border-radius:50%;width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;font-weight:600}
-.scorecard .sc-bogey{color:#fff;background:var(--bogey);border-radius:50%;width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;font-weight:600}
+.scorecard .sc-birdie{color:#fff;background:#E63946;border-radius:50%;width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;font-weight:600}
+.scorecard .sc-eagle{color:#000;background:#F4D03F;border-radius:50%;width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;font-weight:700}
+.scorecard .sc-bogey{color:#fff;background:#2563EB;border-radius:50%;width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;font-weight:600}
 .scorecard .sc-par{color:var(--text)}
-.scorecard .sc-dbl{color:#fff;background:#8B0000;border-radius:50%;width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;font-weight:600}
+.scorecard .sc-dbl{color:#fff;background:#000;border-radius:50%;width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;font-weight:600}
 .scorecard-round{font-family:var(--font-display);font-size:16px;font-weight:400;color:var(--green);margin:12px 0 6px;letter-spacing:1px}
 .round-headers{display:flex;justify-content:flex-end;gap:6px;padding:0 14px 6px;font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px}
 .round-headers span{width:36px;text-align:center}
@@ -323,7 +323,6 @@ body::before{content:'';position:fixed;inset:0;background:
     <!-- LEADERBOARD -->
     <div class="view active" id="viewLeaderboard">
       <div class="stats-row" id="statsRow"></div>
-      <div id="payoutSection"></div>
       <input class="input" type="text" id="lbFilter" placeholder="Mitspieler suchen..." oninput="renderLeaderboard()" style="margin-bottom:12px">
       <div class="round-tabs" id="lbRoundTabs"></div>
       <div id="leaderboardList"></div>
@@ -332,6 +331,11 @@ body::before{content:'';position:fixed;inset:0;background:
     <!-- DRAFT -->
     <div class="view" id="viewDraft">
       <div id="draftContent"></div>
+    </div>
+
+    <!-- PAYOUTS -->
+    <div class="view" id="viewPayouts">
+      <div id="payoutsViewContent"></div>
     </div>
 
     <!-- SCORING (admin) -->
@@ -378,7 +382,11 @@ body::before{content:'';position:fixed;inset:0;background:
       <svg viewBox="0 0 24 24"><path d="M8 21h8m-4-4v4M6 3h12l-1.5 6.5a2 2 0 01-2 1.5h-5a2 2 0 01-2-1.5L6 3z"/><circle cx="12" cy="13" r="2"/></svg>
       <span>Rangliste</span>
     </button>
-    <button class="tab" data-tab="draft" onclick="switchTab('draft')">
+    <button class="tab" data-tab="payouts" onclick="switchTab('payouts')">
+      <svg viewBox="0 0 24 24"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+      <span>Payouts</span>
+    </button>
+    <button class="tab hidden" data-tab="draft" id="tabDraft" onclick="switchTab('draft')">
       <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
       <span>Draft</span>
     </button>
@@ -607,6 +615,7 @@ function setAdmin(yes, uid) {
   S.userId = uid;
   document.getElementById('btnAdmin').classList.toggle('active', yes);
   document.getElementById('tabScoring').classList.toggle('hidden', !yes);
+  document.getElementById('tabDraft').classList.toggle('hidden', !yes);
   document.getElementById('fab').classList.toggle('hidden', !yes || !['draft','leaderboard'].includes(S.activeTab));
 }
 
@@ -752,6 +761,7 @@ function fmtMoney(val) {
 function render() {
   updateIdentityBar();
   renderLeaderboard();
+  renderPayoutsView();
   renderDraft();
   if (S.isAdmin) renderScoring();
   updateFab();
@@ -783,9 +793,27 @@ function getCountingGolfers(participantId, round) {
   }));
 }
 
-function renderPayouts(pot, ranking) {
-  const section = document.getElementById('payoutSection');
-  if (S.participants.length < 2) { section.innerHTML = ''; return; }
+function renderPayoutsView() {
+  const pot = S.participants.length * ENTRY_FEE;
+  const ranking = getRanking();
+  const section = document.getElementById('payoutsViewContent');
+  if (!section) return;
+  if (S.participants.length < 2) {
+    section.innerHTML = '<div class="empty"><div class="empty-icon">&#128176;</div><h3>Noch keine Payouts</h3><p>Mindestens 2 Mitspieler nötig</p></div>';
+    return;
+  }
+  const html = buildPayoutHtml(pot, ranking);
+  section.innerHTML = `
+    <div class="stats-row">
+      <div class="stat-card"><div class="stat-val">${S.participants.length}</div><div class="stat-label">Mitspieler</div></div>
+      <div class="stat-card"><div class="stat-val">${fmtMoney(pot)}</div><div class="stat-label">Pot</div></div>
+      <div class="stat-card"><div class="stat-val">${fmtMoney(pot*.6)}</div><div class="stat-label">1. Platz</div></div>
+    </div>
+    ${html}`;
+}
+
+function buildPayoutHtml(pot, ranking) {
+  if (S.participants.length < 2) return '';
 
   const p1 = Math.round(pot * 0.6);
   const p2 = Math.round(pot * 0.3);
@@ -858,8 +886,8 @@ function renderPayouts(pot, ranking) {
     });
   }
 
-  section.innerHTML = `<div class="payout-card" onclick="this.classList.toggle('open')">
-    <div class="payout-card-header">
+  return `<div class="payout-card open">
+    <div class="payout-card-header" onclick="this.parentElement.classList.toggle('open')">
       <span>Payouts &amp; Abrechnung</span>
       <svg class="toggle-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>
     </div>
@@ -877,8 +905,6 @@ function renderLeaderboard() {
     <div class="stat-card"><div class="stat-val">${fmtMoney(pot*.6)}</div><div class="stat-label">1. Platz</div></div>
   `;
 
-  // Payout section
-  renderPayouts(pot, ranking);
 
   // Filter by search
   const lbFilterVal = (document.getElementById('lbFilter')?.value || '').toLowerCase().trim();
@@ -949,6 +975,10 @@ function renderLeaderboard() {
             const rel = sc !== null ? sc - PAR : null;
             const sCls = scoreClass(rel);
             const counting = countingMap[g.id + '_' + r];
+            // Mid-round: show toPar + thru instead of score
+            if (g._live && g._live.currentRound === r && !g._live.finished) {
+              return `<div class="golfer-rd" style="font-size:11px;color:var(--green);font-weight:600;line-height:1.1">${fmtScore(g._live.toPar)}<div style="font-size:8px;color:var(--text3);font-weight:400">${g._live.thru}</div></div>`;
+            }
             return `<div class="golfer-rd ${sCls}" style="${counting ? 'background:rgba(0,103,71,.08);font-weight:700' : ''}">${sc !== null ? sc : '—'}</div>`;
           }).join('');
           // Live toPar + thru column
@@ -1424,6 +1454,56 @@ function showScorecard(golferId) {
   let html = '';
   const live = golfer._live;
 
+  function holeClass(relPar) {
+    if (!relPar || relPar === 'E') return 'sc-par';
+    const v = parseInt(relPar);
+    if (isNaN(v)) return 'sc-par';
+    if (v <= -2) return 'sc-eagle';
+    if (v === -1) return 'sc-birdie';
+    if (v === 1) return 'sc-bogey';
+    if (v >= 2) return 'sc-dbl';
+    return 'sc-par';
+  }
+
+  function getHolePar(hole) {
+    if (!hole || !hole.score || !hole.par) return null;
+    const rel = hole.par === 'E' ? 0 : parseInt(hole.par);
+    if (isNaN(rel)) return null;
+    return Math.round(hole.score) - rel;
+  }
+
+  function buildNine(roundHoles, start, end, label) {
+    let h = '<table class="scorecard"><tr><th>Loch</th>';
+    for (let i = start; i <= end; i++) h += `<th>${i}</th>`;
+    h += `<th>${label}</th></tr>`;
+    // Par row
+    h += '<tr><td class="hole-num">Par</td>';
+    let parTotal = 0;
+    for (let i = start; i <= end; i++) {
+      const hole = roundHoles.find(x => x.hole === i);
+      const p = getHolePar(hole);
+      if (p) { h += `<td style="color:var(--text3)">${p}</td>`; parTotal += p; }
+      else h += '<td></td>';
+    }
+    h += `<td style="font-weight:600;color:var(--text3)">${parTotal || ''}</td></tr>`;
+    // Score row
+    h += '<tr><td class="hole-num">Score</td>';
+    let scoreTotal = 0;
+    let hasScore = false;
+    for (let i = start; i <= end; i++) {
+      const hole = roundHoles.find(x => x.hole === i);
+      if (hole && hole.score) {
+        scoreTotal += hole.score;
+        hasScore = true;
+        h += `<td><span class="${holeClass(hole.par)}">${Math.round(hole.score)}</span></td>`;
+      } else {
+        h += '<td>\u2014</td>';
+      }
+    }
+    h += `<td style="font-weight:700">${hasScore ? Math.round(scoreTotal) : '\u2014'}</td></tr></table>`;
+    return h;
+  }
+
   for (let r = 1; r <= 4; r++) {
     const roundHoles = live.holes['r' + r];
     if (!roundHoles || roundHoles.length === 0) continue;
@@ -1432,50 +1512,8 @@ function showScorecard(golferId) {
     const roundToPar = roundScore ? roundScore - PAR : null;
 
     html += `<div class="scorecard-round">Runde ${r}${roundToPar !== null ? ' (' + fmtScore(roundToPar) + ')' : ''}</div>`;
-
-    // Front 9
-    html += '<table class="scorecard"><tr><th>Loch</th>';
-    for (let h = 1; h <= 9; h++) html += `<th>${h}</th>`;
-    html += '<th>OUT</th></tr><tr><td class="hole-num">Score</td>';
-    let front9Total = 0;
-    for (let h = 1; h <= 9; h++) {
-      const hole = roundHoles.find(x => x.hole === h);
-      if (hole && hole.score) {
-        front9Total += hole.score;
-        const par = hole.par;
-        let cls = 'sc-par';
-        if (par === '-1') cls = 'sc-birdie';
-        else if (par === '-2' || par === '-3') cls = 'sc-eagle';
-        else if (par === '+1') cls = 'sc-bogey';
-        else if (par && parseInt(par) >= 2) cls = 'sc-dbl';
-        html += `<td><span class="${cls}">${Math.round(hole.score)}</span></td>`;
-      } else {
-        html += '<td>\u2014</td>';
-      }
-    }
-    html += `<td style="font-weight:700">${front9Total > 0 ? front9Total : '\u2014'}</td></tr></table>`;
-
-    // Back 9
-    html += '<table class="scorecard"><tr><th>Loch</th>';
-    for (let h = 10; h <= 18; h++) html += `<th>${h}</th>`;
-    html += '<th>IN</th></tr><tr><td class="hole-num">Score</td>';
-    let back9Total = 0;
-    for (let h = 10; h <= 18; h++) {
-      const hole = roundHoles.find(x => x.hole === h);
-      if (hole && hole.score) {
-        back9Total += hole.score;
-        const par = hole.par;
-        let cls = 'sc-par';
-        if (par === '-1') cls = 'sc-birdie';
-        else if (par === '-2' || par === '-3') cls = 'sc-eagle';
-        else if (par === '+1') cls = 'sc-bogey';
-        else if (par && parseInt(par) >= 2) cls = 'sc-dbl';
-        html += `<td><span class="${cls}">${Math.round(hole.score)}</span></td>`;
-      } else {
-        html += '<td>\u2014</td>';
-      }
-    }
-    html += `<td style="font-weight:700">${back9Total > 0 ? back9Total : '\u2014'}</td></tr></table>`;
+    html += buildNine(roundHoles, 1, 9, 'OUT');
+    html += buildNine(roundHoles, 10, 18, 'IN');
   }
 
   if (!html) html = '<p style="color:var(--text3);text-align:center;padding:20px">Noch keine Loch-Daten verfügbar</p>';
@@ -1697,13 +1735,21 @@ async function fetchLiveScores() {
       const statusType = status.type?.name || '';
       const totalToPar = c.score === 'E' ? 0 : parseInt(c.score) || 0;
 
+      // Determine current round and if finished
+      let lastFinishedRound = 0;
+      for (let i = 1; i <= 4; i++) { if (roundScores['r' + i]) lastFinishedRound = i; }
+      const finished = thru === 'F' || thru === '' || statusType === 'cut';
+      const currentRound = finished ? lastFinishedRound : lastFinishedRound + 1;
+
       scores[name] = {
         ...roundScores,
         holes,
         toPar: totalToPar,
         thru: thru,
         status: statusType,
-        madeCut: statusType !== 'cut'
+        madeCut: statusType !== 'cut',
+        currentRound,
+        finished
       };
     }
 
