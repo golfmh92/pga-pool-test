@@ -101,9 +101,9 @@ body::before{content:'';position:fixed;inset:0;background:
 
 .lb-score{text-align:right;flex-shrink:0}
 .lb-total{font-family:var(--font-display);font-size:24px;font-weight:700}
-.lb-total.under{color:var(--green)}
-.lb-total.over{color:var(--bogey)}
-.lb-total.even{color:var(--text)}
+.lb-total.under{color:#E63946}
+.lb-total.over{color:#000}
+.lb-total.even{color:#2563EB}
 .lb-bonus{font-size:10px;color:var(--gold2);margin-top:1px}
 
 .eliminated-badge{display:inline-flex;align-items:center;gap:3px;background:var(--red-bg);color:var(--red);font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px;margin-left:6px}
@@ -152,9 +152,9 @@ body::before{content:'';position:fixed;inset:0;background:
 .golfer-name{flex:1;font-weight:500;font-size:14px}
 .golfer-rounds{display:flex;gap:6px}
 .golfer-rd{width:36px;text-align:center;font-size:12px;font-weight:500;padding:4px 0;border-radius:6px;background:var(--bg2)}
-.golfer-rd.birdie{color:var(--birdie)}
-.golfer-rd.bogey{color:var(--bogey)}
-.golfer-rd.eagle{color:var(--eagle)}
+.golfer-rd.birdie{color:#E63946}
+.golfer-rd.even{color:#2563EB}
+.golfer-rd.bogey{color:#000}
 .golfer-cut{font-size:10px;color:var(--red);font-weight:600;margin-left:8px}
 .scorecard{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:12px}
 .scorecard th{background:var(--bg2);padding:6px 4px;text-align:center;font-weight:600;color:var(--text2);font-size:10px}
@@ -747,9 +747,9 @@ function fmtScore(val) {
 
 function scoreClass(val) {
   if (val === null || val === undefined) return '';
-  if (val < -1) return 'eagle';
-  if (val < 0) return 'birdie';
-  if (val > 0) return 'bogey';
+  if (val < 0) return 'birdie';  // under par = red
+  if (val === 0) return 'even';  // even par = blue
+  if (val > 0) return 'bogey';   // over par = black
   return '';
 }
 
@@ -1485,11 +1485,11 @@ function showScorecard(golferId) {
     // Get par from first round with data (par is the same every round)
     const parSource = live.holes['r' + activeRounds[0]];
 
-    function buildNine(start, end, label, showTotal) {
+    function buildNine(start, end, label, hasExtraCol, fillExtra) {
       let h = '<table class="scorecard"><tr><th></th>';
       for (let i = start; i <= end; i++) h += `<th>${i}</th>`;
       h += `<th>${label}</th>`;
-      if (showTotal) h += '<th>Tot</th>';
+      if (hasExtraCol) h += `<th>${fillExtra ? 'Tot' : ''}</th>`;
       h += '</tr>';
 
       // Par row
@@ -1502,7 +1502,7 @@ function showScorecard(golferId) {
         else h += '<td></td>';
       }
       h += `<td style="font-weight:600;color:var(--text3)">${parTotal || ''}</td>`;
-      if (showTotal) h += `<td style="font-weight:600;color:var(--text3)">${PAR}</td>`;
+      if (hasExtraCol) h += `<td style="font-weight:600;color:var(--text3)">${fillExtra ? PAR : ''}</td>`;
       h += '</tr>';
 
       // One row per round
@@ -1524,7 +1524,7 @@ function showScorecard(golferId) {
           }
         }
         h += `<td style="font-weight:700">${hasScore ? Math.round(total) : '\u2014'}</td>`;
-        if (showTotal) h += `<td style="font-weight:700">${roundScore ? roundScore : '\u2014'}</td>`;
+        if (hasExtraCol) h += `<td style="font-weight:700">${fillExtra && roundScore ? roundScore : ''}</td>`;
         h += '</tr>';
       }
 
@@ -1542,9 +1542,9 @@ function showScorecard(golferId) {
     }
     html += '</div>';
 
-    html += buildNine(1, 9, 'OUT', false);
+    html += buildNine(1, 9, 'OUT', true, false);
     html += '<div style="height:4px"></div>';
-    html += buildNine(10, 18, 'IN', true);
+    html += buildNine(10, 18, 'IN', true, true);
   }
 
   document.getElementById('scorecardContent').innerHTML = html;
