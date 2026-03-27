@@ -1485,10 +1485,12 @@ function showScorecard(golferId) {
     // Get par from first round with data (par is the same every round)
     const parSource = live.holes['r' + activeRounds[0]];
 
-    function buildNine(start, end, label) {
+    function buildNine(start, end, label, showTotal) {
       let h = '<table class="scorecard"><tr><th></th>';
       for (let i = start; i <= end; i++) h += `<th>${i}</th>`;
-      h += `<th>${label}</th></tr>`;
+      h += `<th>${label}</th>`;
+      if (showTotal) h += '<th>Tot</th>';
+      h += '</tr>';
 
       // Par row
       h += '<tr><td class="hole-num">Par</td>';
@@ -1499,16 +1501,16 @@ function showScorecard(golferId) {
         if (p) { h += `<td style="color:var(--text3)">${p}</td>`; parTotal += p; }
         else h += '<td></td>';
       }
-      h += `<td style="font-weight:600;color:var(--text3)">${parTotal || ''}</td></tr>`;
+      h += `<td style="font-weight:600;color:var(--text3)">${parTotal || ''}</td>`;
+      if (showTotal) h += `<td style="font-weight:600;color:var(--text3)">${PAR}</td>`;
+      h += '</tr>';
 
       // One row per round
       for (const r of activeRounds) {
         const roundHoles = live.holes['r' + r];
         const roundScore = live['r' + r];
-        const roundToPar = roundScore ? roundScore - PAR : null;
-        const roundLabel = `R${r}`;
 
-        h += `<tr><td class="hole-num" style="font-weight:600;color:var(--green)">${roundLabel}</td>`;
+        h += `<tr><td class="hole-num" style="font-weight:600;color:var(--green)">R${r}</td>`;
         let total = 0;
         let hasScore = false;
         for (let i = start; i <= end; i++) {
@@ -1521,7 +1523,9 @@ function showScorecard(golferId) {
             h += '<td style="color:var(--text3)">\u2014</td>';
           }
         }
-        h += `<td style="font-weight:700">${hasScore ? Math.round(total) : '\u2014'}</td></tr>`;
+        h += `<td style="font-weight:700">${hasScore ? Math.round(total) : '\u2014'}</td>`;
+        if (showTotal) h += `<td style="font-weight:700">${roundScore ? roundScore : '\u2014'}</td>`;
+        h += '</tr>';
       }
 
       h += '</table>';
@@ -1538,9 +1542,9 @@ function showScorecard(golferId) {
     }
     html += '</div>';
 
-    html += buildNine(1, 9, 'OUT');
+    html += buildNine(1, 9, 'OUT', false);
     html += '<div style="height:4px"></div>';
-    html += buildNine(10, 18, 'IN');
+    html += buildNine(10, 18, 'IN', true);
   }
 
   document.getElementById('scorecardContent').innerHTML = html;
@@ -1558,6 +1562,29 @@ function closeModal(id) {
 document.querySelectorAll('.modal-overlay').forEach(overlay => {
   overlay.addEventListener('click', e => {
     if (e.target === overlay) overlay.classList.remove('open');
+  });
+});
+// Swipe-down to dismiss modals
+document.querySelectorAll('.modal').forEach(modal => {
+  let startY = 0, currentY = 0, swiping = false;
+  modal.addEventListener('touchstart', e => {
+    if (modal.scrollTop <= 0) { startY = e.touches[0].clientY; swiping = true; }
+  }, { passive: true });
+  modal.addEventListener('touchmove', e => {
+    if (!swiping) return;
+    currentY = e.touches[0].clientY;
+    const dy = currentY - startY;
+    if (dy > 0) modal.style.transform = `translateY(${dy}px)`;
+  }, { passive: true });
+  modal.addEventListener('touchend', () => {
+    if (!swiping) return;
+    const dy = currentY - startY;
+    swiping = false;
+    if (dy > 80) {
+      modal.closest('.modal-overlay').classList.remove('open');
+    }
+    modal.style.transform = '';
+    currentY = 0;
   });
 });
 
