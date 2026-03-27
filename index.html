@@ -328,6 +328,12 @@ body::before{content:'';position:fixed;inset:0;background:
       <div id="leaderboardList"></div>
     </div>
 
+    <!-- TOURNAMENT LEADERBOARD -->
+    <div class="view" id="viewTournament">
+      <input class="input" type="text" id="tournamentFilter" placeholder="Spieler suchen..." oninput="renderTournament()" style="margin-bottom:12px">
+      <div id="tournamentList"></div>
+    </div>
+
     <!-- DRAFT -->
     <div class="view" id="viewDraft">
       <div id="draftContent"></div>
@@ -381,6 +387,10 @@ body::before{content:'';position:fixed;inset:0;background:
     <button class="tab active" data-tab="leaderboard" onclick="switchTab('leaderboard')">
       <svg viewBox="0 0 24 24"><path d="M8 21h8m-4-4v4M6 3h12l-1.5 6.5a2 2 0 01-2 1.5h-5a2 2 0 01-2-1.5L6 3z"/><circle cx="12" cy="13" r="2"/></svg>
       <span>Rangliste</span>
+    </button>
+    <button class="tab" data-tab="tournament" onclick="switchTab('tournament')">
+      <svg viewBox="0 0 24 24"><path d="M3 3h18v18H3z" fill="none" stroke="currentColor" stroke-width="0"/><path d="M16 3l5 5-11 11-5-1 1-5L16 3z"/><path d="M14 7l3 3"/></svg>
+      <span>Turnier</span>
     </button>
     <button class="tab" data-tab="payouts" onclick="switchTab('payouts')">
       <svg viewBox="0 0 24 24"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
@@ -761,6 +771,7 @@ function fmtMoney(val) {
 function render() {
   updateIdentityBar();
   renderLeaderboard();
+  renderTournament();
   renderPayoutsView();
   renderDraft();
   if (S.isAdmin) renderScoring();
@@ -1442,17 +1453,99 @@ async function removeBonus(id) {
 
 
 /* ===================== Scorecard ===================== */
+/* ===================== Tournament Leaderboard ===================== */
+function renderTournament() {
+  const list = document.getElementById('tournamentList');
+  if (!list) return;
+  const entries = Object.entries(S.liveScores);
+  if (entries.length === 0) {
+    list.innerHTML = '<div class="empty"><div class="empty-icon">&#9971;</div><h3>Keine Live-Daten</h3><p>Das Turnier hat noch nicht begonnen oder die Daten werden geladen.</p></div>';
+    return;
+  }
+
+  const filter = (document.getElementById('tournamentFilter')?.value || '').toLowerCase().trim();
+
+  // Build player list sorted by toPar
+  let players = entries.map(([name, data]) => {
+    // Find team assignment
+    const draftedGolfer = S.golfers.find(g => normalizeName(g.name) === normalizeName(name));
+    const team = draftedGolfer ? S.participants.find(p => p.id === draftedGolfer.participant_id) : null;
+    return { name, data, team: team ? team.name : null };
+  });
+
+  if (filter) {
+    players = players.filter(p => p.name.toLowerCase().includes(filter) || (p.team && p.team.toLowerCase().includes(filter)));
+  }
+
+  players.sort((a, b) => a.data.toPar - b.data.toPar);
+
+  let rank = 0, prevScore = null;
+  list.innerHTML = players.map((p, i) => {
+    if (p.data.toPar !== prevScore) { rank = i + 1; prevScore = p.data.toPar; }
+    const scoreCls = p.data.toPar < 0 ? 'under' : p.data.toPar > 0 ? 'over' : 'even';
+
+    // Round scores display
+    const rounds = [1,2,3,4].map(r => {
+      if (p.data.currentRound === r && !p.data.finished) {
+        return `<span style="font-size:10px;color:#E63946;font-weight:600">${fmtScore(p.data.toPar)}<span style="font-size:8px;color:var(--text3);font-weight:400;display:block">${p.data.thru}</span></span>`;
+      }
+      const sc = p.data['r' + r];
+      if (!sc) return '<span style="color:var(--text3)">\u2014</span>';
+      const rel = sc - PAR;
+      return `<span style="color:${rel < 0 ? '#E63946' : rel === 0 ? '#2563EB' : '#000'};font-weight:500">${sc}</span>`;
+    });
+
+    const teamBadge = p.team ? `<div style="font-size:10px;color:var(--gold);margin-top:1px">${esc(p.team)}</div>` : '';
+
+    return `<div class="lb-entry" style="cursor:pointer" onclick="showScorecardByName('${esc(p.name)}')">
+      <div class="lb-rank">${rank}</div>
+      <div class="lb-info" style="min-width:0">
+        <div class="lb-name">${esc(p.name)}</div>
+        ${teamBadge}
+      </div>
+      <div style="display:flex;gap:6px;align-items:center;font-size:12px">
+        ${rounds.map(r => `<div style="width:30px;text-align:center">${r}</div>`).join('')}
+      </div>
+      <div class="lb-score">
+        <div class="lb-total ${scoreCls}">${fmtScore(p.data.toPar)}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function showScorecardByName(playerName) {
+  const data = S.liveScores[playerName];
+  if (!data || !data.holes) {
+    showToast('Keine Loch-Daten verfügbar');
+    return;
+  }
+  // Find team
+  const draftedGolfer = S.golfers.find(g => normalizeName(g.name) === normalizeName(playerName));
+  const team = draftedGolfer ? S.participants.find(p => p.id === draftedGolfer.participant_id) : null;
+  const teamInfo = team ? ` <span style="font-size:13px;color:var(--gold);font-weight:400">${esc(team.name)}</span>` : '';
+
+  document.getElementById('scorecardTitle').innerHTML = esc(playerName) + teamInfo;
+  renderScorecardContent(data);
+  openModal('modalScorecard');
+}
+
 function showScorecard(golferId) {
   const golfer = S.golfers.find(g => g.id === golferId);
   if (!golfer || !golfer._live || !golfer._live.holes) {
     showToast('Keine Loch-Daten verfügbar');
     return;
   }
+  // Find team
+  const team = S.participants.find(p => p.id === golfer.participant_id);
+  const teamInfo = team ? ` <span style="font-size:13px;color:var(--gold);font-weight:400">${esc(team.name)}</span>` : '';
 
-  document.getElementById('scorecardTitle').textContent = golfer.name;
+  document.getElementById('scorecardTitle').innerHTML = esc(golfer.name) + teamInfo;
+  renderScorecardContent(golfer._live);
+  openModal('modalScorecard');
+}
 
+function renderScorecardContent(live) {
   let html = '';
-  const live = golfer._live;
 
   function holeClass(relPar) {
     if (!relPar || relPar === 'E') return 'sc-par';
@@ -1548,7 +1641,6 @@ function showScorecard(golferId) {
   }
 
   document.getElementById('scorecardContent').innerHTML = html;
-  openModal('modalScorecard');
 }
 
 /* ===================== UI Helpers ===================== */
