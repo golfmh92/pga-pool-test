@@ -1684,7 +1684,7 @@ async function fetchLiveScores() {
         const roundHoles = linescores[i].linescores || [];
         if (roundHoles.length > 0) {
           holes['r' + (i + 1)] = roundHoles.map(h => ({
-            hole: h.period - 9,
+            hole: h.period,
             score: h.value,
             par: h.scoreType ? h.scoreType.displayValue : null
           }));
