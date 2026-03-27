@@ -1472,51 +1472,76 @@ function showScorecard(golferId) {
     return Math.round(hole.score) - rel;
   }
 
-  function buildNine(roundHoles, start, end, label) {
-    let h = '<table class="scorecard"><tr><th>Loch</th>';
-    for (let i = start; i <= end; i++) h += `<th>${i}</th>`;
-    h += `<th>${label}</th></tr>`;
-    // Par row
-    h += '<tr><td class="hole-num">Par</td>';
-    let parTotal = 0;
-    for (let i = start; i <= end; i++) {
-      const hole = roundHoles.find(x => x.hole === i);
-      const p = getHolePar(hole);
-      if (p) { h += `<td style="color:var(--text3)">${p}</td>`; parTotal += p; }
-      else h += '<td></td>';
-    }
-    h += `<td style="font-weight:600;color:var(--text3)">${parTotal || ''}</td></tr>`;
-    // Score row
-    h += '<tr><td class="hole-num">Score</td>';
-    let scoreTotal = 0;
-    let hasScore = false;
-    for (let i = start; i <= end; i++) {
-      const hole = roundHoles.find(x => x.hole === i);
-      if (hole && hole.score) {
-        scoreTotal += hole.score;
-        hasScore = true;
-        h += `<td><span class="${holeClass(hole.par)}">${Math.round(hole.score)}</span></td>`;
-      } else {
-        h += '<td>\u2014</td>';
-      }
-    }
-    h += `<td style="font-weight:700">${hasScore ? Math.round(scoreTotal) : '\u2014'}</td></tr></table>`;
-    return h;
-  }
-
+  // Find which rounds have data
+  const activeRounds = [];
   for (let r = 1; r <= 4; r++) {
-    const roundHoles = live.holes['r' + r];
-    if (!roundHoles || roundHoles.length === 0) continue;
-
-    const roundScore = live['r' + r];
-    const roundToPar = roundScore ? roundScore - PAR : null;
-
-    html += `<div class="scorecard-round">Runde ${r}${roundToPar !== null ? ' (' + fmtScore(roundToPar) + ')' : ''}</div>`;
-    html += buildNine(roundHoles, 1, 9, 'OUT');
-    html += buildNine(roundHoles, 10, 18, 'IN');
+    const rh = live.holes['r' + r];
+    if (rh && rh.length > 0) activeRounds.push(r);
   }
 
-  if (!html) html = '<p style="color:var(--text3);text-align:center;padding:20px">Noch keine Loch-Daten verfügbar</p>';
+  if (activeRounds.length === 0) {
+    html = '<p style="color:var(--text3);text-align:center;padding:20px">Noch keine Loch-Daten verfügbar</p>';
+  } else {
+    // Get par from first round with data (par is the same every round)
+    const parSource = live.holes['r' + activeRounds[0]];
+
+    function buildNine(start, end, label) {
+      let h = '<table class="scorecard"><tr><th></th>';
+      for (let i = start; i <= end; i++) h += `<th>${i}</th>`;
+      h += `<th>${label}</th></tr>`;
+
+      // Par row
+      h += '<tr><td class="hole-num">Par</td>';
+      let parTotal = 0;
+      for (let i = start; i <= end; i++) {
+        const hole = parSource.find(x => x.hole === i);
+        const p = getHolePar(hole);
+        if (p) { h += `<td style="color:var(--text3)">${p}</td>`; parTotal += p; }
+        else h += '<td></td>';
+      }
+      h += `<td style="font-weight:600;color:var(--text3)">${parTotal || ''}</td></tr>`;
+
+      // One row per round
+      for (const r of activeRounds) {
+        const roundHoles = live.holes['r' + r];
+        const roundScore = live['r' + r];
+        const roundToPar = roundScore ? roundScore - PAR : null;
+        const roundLabel = `R${r}`;
+
+        h += `<tr><td class="hole-num" style="font-weight:600;color:var(--green)">${roundLabel}</td>`;
+        let total = 0;
+        let hasScore = false;
+        for (let i = start; i <= end; i++) {
+          const hole = roundHoles ? roundHoles.find(x => x.hole === i) : null;
+          if (hole && hole.score) {
+            total += hole.score;
+            hasScore = true;
+            h += `<td><span class="${holeClass(hole.par)}">${Math.round(hole.score)}</span></td>`;
+          } else {
+            h += '<td style="color:var(--text3)">\u2014</td>';
+          }
+        }
+        h += `<td style="font-weight:700">${hasScore ? Math.round(total) : '\u2014'}</td></tr>`;
+      }
+
+      h += '</table>';
+      return h;
+    }
+
+    // Totals summary
+    html += '<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">';
+    html += `<div style="font-size:13px;color:var(--text2)">Gesamt: <strong style="color:var(--green)">${fmtScore(live.toPar)}</strong></div>`;
+    for (const r of activeRounds) {
+      const sc = live['r' + r];
+      const tp = sc ? sc - PAR : null;
+      html += `<div style="font-size:13px;color:var(--text3)">R${r}: ${tp !== null ? fmtScore(tp) : (live.currentRound === r ? fmtScore(live.toPar) + ' (' + live.thru + ')' : '\u2014')}</div>`;
+    }
+    html += '</div>';
+
+    html += buildNine(1, 9, 'OUT');
+    html += '<div style="height:4px"></div>';
+    html += buildNine(10, 18, 'IN');
+  }
 
   document.getElementById('scorecardContent').innerHTML = html;
   openModal('modalScorecard');
@@ -1736,7 +1761,7 @@ async function fetchLiveScores() {
               // Mid-round — don't store as final score
               currentRound = i + 1;
               finished = false;
-              thruHoles = holesPlayed + 'H';
+              thruHoles = '' + holesPlayed;
             }
           }
         }
