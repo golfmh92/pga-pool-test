@@ -150,8 +150,8 @@ body::before{content:'';position:fixed;inset:0;background:
 .golfer-row.cut{opacity:.4;text-decoration:line-through}
 .golfer-row.counting{border-left:3px solid var(--green)}
 .golfer-name{flex:1;font-weight:500;font-size:13px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.golfer-rounds{display:flex;gap:6px}
-.golfer-rd{width:36px;text-align:center;font-size:12px;font-weight:500;padding:4px 0;border-radius:6px;background:var(--bg2)}
+.golfer-rounds{display:flex;gap:3px}
+.golfer-rd{width:30px;text-align:center;font-size:11px;font-weight:500;padding:3px 0;border-radius:6px;background:var(--bg2)}
 .golfer-rd.birdie{color:#E63946}
 .golfer-rd.even{color:#2563EB}
 .golfer-rd.bogey{color:#000}
@@ -166,8 +166,8 @@ body::before{content:'';position:fixed;inset:0;background:
 .scorecard .sc-par{color:var(--text)}
 .scorecard .sc-dbl{color:#fff;background:#000;border-radius:50%;width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;font-weight:600}
 .scorecard-round{font-family:var(--font-display);font-size:16px;font-weight:400;color:var(--green);margin:12px 0 6px;letter-spacing:1px}
-.round-headers{display:flex;justify-content:flex-end;gap:6px;padding:0 14px 6px;font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px}
-.round-headers span{width:36px;text-align:center}
+.round-headers{display:flex;justify-content:flex-end;gap:3px;padding:0 14px 6px;font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px}
+.round-headers span{width:30px;text-align:center}
 
 /* ===== Draft ===== */
 .draft-pick{display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:6px;box-shadow:0 1px 2px rgba(0,0,0,.03)}
@@ -1001,7 +1001,7 @@ function renderLeaderboard() {
 
       expandHtml = '<div class="lb-expand-inner">';
       if (rd === 0) {
-        expandHtml += '<div class="round-headers" style="padding-left:0"><span>R1</span><span>R2</span><span>R3</span><span>R4</span><span style="width:50px">Live</span></div>';
+        expandHtml += '<div class="round-headers" style="padding-left:0"><span>R1</span><span>R2</span><span>R3</span><span>R4</span><span style="width:40px">Live</span></div>';
         expandHtml += teamGolfers.map(g => {
           const isCut = !g.made_cut || (g._live && g._live.status === 'cut');
           const rounds = [1,2,3,4].map(r => {
@@ -1017,11 +1017,11 @@ function renderLeaderboard() {
           }).join('');
           // Live toPar + thru column
           const liveHtml = g._live
-            ? `<div style="width:50px;text-align:center;font-size:11px;line-height:1.2">
+            ? `<div style="width:40px;text-align:center;font-size:11px;line-height:1.2">
                 <div style="font-weight:600;color:var(--green)">${fmtScore(g._live.toPar)}</div>
                 ${g._live.thru && g._live.thru !== 'F' ? `<div style="color:var(--text3);font-size:9px">${g._live.thru}</div>` : ''}
               </div>`
-            : '<div style="width:50px"></div>';
+            : '<div style="width:40px"></div>';
           return `<div class="golfer-row ${isCut ? 'cut' : ''}">
             <div class="golfer-name" style="cursor:pointer;text-decoration:underline dotted var(--text3)" onclick="event.stopPropagation();showScorecard('${g.id}')">${esc(g.name)}</div>
             <div class="golfer-rounds">${rounds}</div>
@@ -1121,7 +1121,7 @@ function renderTeams() {
         withScores.slice(0, count).forEach(x => { countingMap[x.id + '_' + r] = true; });
       }
 
-      html += `<div class="round-headers"><span>R1</span><span>R2</span><span>R3</span><span>R4</span><span style="width:50px">Live</span></div>`;
+      html += `<div class="round-headers"><span>R1</span><span>R2</span><span>R3</span><span>R4</span><span style="width:40px">Live</span></div>`;
       html += teamGolfers.map(g => {
         const isCut = !g.made_cut || (g._live && g._live.status === 'cut');
         const cutCls = isCut ? 'cut' : '';
@@ -1133,11 +1133,11 @@ function renderTeams() {
           return `<div class="golfer-rd ${cls}" style="${counting ? 'background:rgba(0,103,71,.08);font-weight:700' : ''}">${sc !== null ? sc : '—'}</div>`;
         }).join('');
         const liveHtml = g._live
-          ? `<div style="width:50px;text-align:center;font-size:11px;line-height:1.2">
+          ? `<div style="width:40px;text-align:center;font-size:11px;line-height:1.2">
               <div style="font-weight:600;color:var(--green)">${fmtScore(g._live.toPar)}</div>
               ${g._live.thru && g._live.thru !== 'F' ? `<div style="color:var(--text3);font-size:9px">${g._live.thru}</div>` : ''}
             </div>`
-          : '<div style="width:50px"></div>';
+          : '<div style="width:40px"></div>';
         return `<div class="golfer-row ${cutCls}">
           <div class="golfer-name">${esc(g.name)}</div>
           <div class="golfer-rounds">${rounds}</div>
