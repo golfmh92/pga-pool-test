@@ -915,6 +915,13 @@ function buildPayoutHtml(pot, ranking) {
 }
 
 function renderLeaderboard() {
+  // Preserve open state
+  const openEntries = new Set();
+  document.querySelectorAll('#leaderboardList .lb-entry.open').forEach(el => {
+    const id = el.dataset.id;
+    if (id) openEntries.add(id);
+  });
+
   const pot = S.participants.length * ENTRY_FEE;
   const ranking = getRanking();
 
@@ -1011,7 +1018,8 @@ function renderLeaderboard() {
             const counting = countingMap[g.id + '_' + r];
             // Mid-round: show toPar + thru instead of score
             if (g._live && g._live.currentRound === r && !g._live.finished) {
-              return `<div class="golfer-rd" style="font-size:11px;color:var(--green);font-weight:600;line-height:1.1">${fmtScore(g._live.toPar)}<div style="font-size:8px;color:var(--text3);font-weight:400">${g._live.thru}</div></div>`;
+              const rtp = g._live['r' + r + '_toPar'] !== undefined ? g._live['r' + r + '_toPar'] : g._live.toPar;
+              return `<div class="golfer-rd" style="font-size:11px;color:var(--green);font-weight:600;line-height:1.1">${fmtScore(rtp)}<div style="font-size:8px;color:var(--text3);font-weight:400">${g._live.thru}</div></div>`;
             }
             return `<div class="golfer-rd ${sCls}" style="${counting ? 'background:rgba(0,103,71,.08);font-weight:700' : ''}">${sc !== null ? sc : '—'}</div>`;
           }).join('');
@@ -1060,7 +1068,7 @@ function renderLeaderboard() {
     const bonusHtml = t.bonus > 0 ? `<div class="lb-bonus">Bonus: -${t.bonus}</div>` : '';
     const elimBadge = t.isEliminated ? '<span class="eliminated-badge">ELIMINATED</span>' : '';
     const chevron = teamGolfers.length > 0 ? `<div class="lb-toggle"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg></div>` : '';
-    return `<div class="${cls}" onclick="this.classList.toggle('open')">
+    return `<div class="${cls}" data-id="${t.id}" onclick="this.classList.toggle('open')">
       <div class="lb-rank">${rankDisplay}</div>
       <div class="lb-info">
         <div class="lb-name">${esc(t.name)}${elimBadge}</div>
@@ -1074,6 +1082,12 @@ function renderLeaderboard() {
       <div class="lb-expand">${expandHtml}</div>
     </div>`;
   }).join('');
+
+  // Restore open state after re-render
+  openEntries.forEach(id => {
+    const el = document.querySelector(`#leaderboardList [data-id="${id}"]`);
+    if (el) el.classList.add('open');
+  });
 }
 
 function renderTeams() {
@@ -1549,8 +1563,9 @@ function renderTournament() {
     // Round scores display
     const rounds = [1,2,3,4].map(r => {
       if (p.data.currentRound === r && !p.data.finished) {
-        const liveColor = p.data.toPar < 0 ? '#E63946' : p.data.toPar === 0 ? '#2563EB' : '#000';
-        return `<span style="font-size:10px;color:${liveColor};font-weight:600">${fmtScore(p.data.toPar)}<span style="font-size:8px;color:var(--text3);font-weight:400;display:block">${p.data.thru}</span></span>`;
+        const rtp = p.data['r' + r + '_toPar'] !== undefined ? p.data['r' + r + '_toPar'] : p.data.toPar;
+        const liveColor = rtp < 0 ? '#E63946' : rtp === 0 ? '#2563EB' : '#000';
+        return `<span style="font-size:10px;color:${liveColor};font-weight:600">${fmtScore(rtp)}<span style="font-size:8px;color:var(--text3);font-weight:400;display:block">${p.data.thru}</span></span>`;
       }
       const sc = p.data['r' + r];
       if (!sc) return '<span style="color:var(--text3)">\u2014</span>';
@@ -1956,6 +1971,7 @@ async function fetchLiveScores() {
               currentRound = i + 1;
               finished = false;
               thruHoles = '' + holesPlayed;
+              roundScores['r' + (i + 1) + '_toPar'] = roundToPar; // store round toPar for display
             }
           }
         }
