@@ -1023,7 +1023,7 @@ function renderLeaderboard() {
               </div>`
             : '<div style="width:40px"></div>';
           return `<div class="golfer-row ${isCut ? 'cut' : ''}">
-            <div class="golfer-name" style="cursor:pointer;text-decoration:underline dotted var(--text3)" onclick="event.stopPropagation();showScorecard('${g.id}')">${esc(g.name)}</div>
+            <div class="golfer-name" style="cursor:pointer;text-decoration:underline dotted var(--text3)" onclick="event.stopPropagation();showScorecard('${g.id}')">${esc(shortName(g.name))}</div>
             <div class="golfer-rounds">${rounds}</div>
             ${liveHtml}
             ${isCut ? '<div class="golfer-cut">CUT</div>' : ''}
@@ -1043,7 +1043,7 @@ function renderLeaderboard() {
             ? `<span style="font-size:12px;font-weight:600;color:var(--green)">${fmtScore(g._live.toPar)}</span>${thru ? `<span style="font-size:10px;color:var(--text3);margin-left:4px">${thru}</span>` : ''}`
             : '';
           return `<div class="golfer-row ${isCut ? 'cut' : ''}">
-            <div class="golfer-name" style="cursor:pointer;text-decoration:underline dotted var(--text3);${counting ? 'color:var(--green);font-weight:600' : ''}" onclick="event.stopPropagation();showScorecard('${g.id}')">${esc(g.name)}</div>
+            <div class="golfer-name" style="cursor:pointer;text-decoration:underline dotted var(--text3);${counting ? 'color:var(--green);font-weight:600' : ''}" onclick="event.stopPropagation();showScorecard('${g.id}')">${esc(shortName(g.name))}</div>
             <div style="display:flex;align-items:center;gap:6px">
               ${thru && hasRoundScore ? `<span style="font-size:10px;color:var(--text3)">${thru}</span>` : ''}
               ${hasRoundScore ? `<div class="golfer-rd ${sCls}" style="${counting ? 'background:rgba(0,103,71,.08);font-weight:700' : ''}">${fmtScore(rel)}</div>` : ''}
@@ -1502,30 +1502,45 @@ function renderTournament() {
 
   players.sort((a, b) => a.data.toPar - b.data.toPar);
 
-  // Sort WD players to bottom
+  // Sort: active first, then cut, then WD
   players.sort((a, b) => {
-    const aWD = a.data.status === 'wd' ? 1 : 0;
-    const bWD = b.data.status === 'wd' ? 1 : 0;
-    if (aWD !== bWD) return aWD - bWD;
+    const aOrder = a.data.status === 'wd' ? 2 : a.data.status === 'cut' ? 1 : 0;
+    const bOrder = b.data.status === 'wd' ? 2 : b.data.status === 'cut' ? 1 : 0;
+    if (aOrder !== bOrder) return aOrder - bOrder;
     return a.data.toPar - b.data.toPar;
   });
 
   let rank = 0, prevScore = null;
   list.innerHTML = players.map((p, i) => {
     const isWD = p.data.status === 'wd';
-    if (!isWD && p.data.toPar !== prevScore) { rank = i + 1; prevScore = p.data.toPar; }
+    const isCut = p.data.status === 'cut';
+    const isOut = isWD || isCut;
+    if (!isOut && p.data.toPar !== prevScore) { rank = i + 1; prevScore = p.data.toPar; }
 
-    if (isWD) {
+    if (isOut) {
       const teamBadge = p.team ? `<div style="font-size:10px;color:var(--gold);margin-top:1px">${esc(p.team)}</div>` : '';
       const nameParts = p.name.trim().split(' ');
       const shortName = nameParts.length > 1 ? nameParts.slice(1).join(' ') + ' ' + nameParts[0][0] + '.' : p.name;
-      return `<div class="lb-entry" style="opacity:0.4">
+      const badge = isWD ? 'WD' : 'MC';
+      const rounds = [1,2,3,4].map(r => {
+        const sc = p.data['r' + r];
+        if (!sc) return '<span style="color:var(--text3)">\u2014</span>';
+        const rel = sc - PAR;
+        return `<span style="color:${rel < 0 ? '#E63946' : rel === 0 ? '#2563EB' : '#000'};font-weight:500">${sc}</span>`;
+      });
+      return `<div class="lb-entry" style="opacity:0.4;cursor:${isCut ? 'pointer' : 'default'}" ${isCut ? `onclick="showScorecardByName('${esc(p.name)}')"` : ''}>
         <div class="lb-rank" style="width:28px;flex-shrink:0">\u2014</div>
         <div style="flex:1;min-width:0;overflow:hidden">
           <div style="font-weight:600;font-size:12px">${esc(shortName)}</div>
           ${teamBadge}
         </div>
-        <div style="font-size:12px;font-weight:600;color:var(--red)">WD</div>
+        <div style="display:flex;gap:3px;align-items:center;font-size:12px;flex-shrink:0;margin-left:4px">
+          ${rounds.map(r => `<div style="width:26px;text-align:center">${r}</div>`).join('')}
+        </div>
+        <div style="width:42px;text-align:right;flex-shrink:0">
+          <div style="font-size:11px;font-weight:600;color:var(--red)">${badge}</div>
+          <div style="font-size:10px;color:var(--text3)">${fmtScore(p.data.toPar)}</div>
+        </div>
       </div>`;
     }
 
@@ -1747,6 +1762,12 @@ function esc(s) {
   return d.innerHTML;
 }
 
+function shortName(fullName) {
+  const parts = fullName.trim().split(' ');
+  if (parts.length <= 1) return fullName;
+  return parts.slice(1).join(' ') + ' ' + parts[0][0] + '.';
+}
+
 /* ===================== Masters Field ===================== */
 async function fetchMastersField() {
   // 1. Try Supabase first (pre-seeded field, available before tournament)
@@ -1947,19 +1968,20 @@ async function fetchLiveScores() {
       const totalToPar = c.score === 'E' ? 0 : parseInt(c.score) || 0;
       const thru = statusThru || thruHoles;
 
-      // Detect WD/DQ: displayValue is "-" for all rounds and no hole data
-      const hasAnyRound = Object.keys(roundScores).length > 0;
-      const hasAnyHoles = Object.keys(holes).length > 0;
-      const allDash = linescores.length > 0 && linescores.every(l => l.displayValue === '-');
-      const isWD = !hasAnyRound && !hasAnyHoles && allDash;
+      // Detect WD: a round has displayValue "-" while a previous round had a score
+      const isWD = linescores.some((l, idx) => l.displayValue === '-' && idx > 0 && linescores[idx-1].displayValue && linescores[idx-1].displayValue !== '-');
+      // Detect missed cut: fewer linescores than expected (e.g. only 2 rounds, no R3)
+      const maxRounds = linescores.length;
+      const completedRounds = Object.keys(roundScores).length;
+      const isCut = !isWD && maxRounds <= 2 && completedRounds >= 2 && currentRound === 0 && finished;
 
       scores[name] = {
         ...roundScores,
         holes,
         toPar: totalToPar,
         thru: thru,
-        status: isWD ? 'wd' : statusType,
-        madeCut: statusType !== 'cut' && !isWD,
+        status: isWD ? 'wd' : (isCut ? 'cut' : statusType),
+        madeCut: !isWD && !isCut,
         currentRound,
         finished: finished || isWD
       };
