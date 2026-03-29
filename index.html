@@ -1104,8 +1104,24 @@ function renderMeineGolfer() {
     .sort((a, b) => a.toPar - b.toPar);
   scored.slice(0, count).forEach(g => countingIds.add(g.id));
 
-  let html = '<div class="mg-strip"><div class="mg-title">Meine Golfer</div><div class="mg-scroll">';
-  for (const g of myGolfers) {
+  // Sort by toPar (best first), cut golfers last
+  const sortedGolfers = [...myGolfers].sort((a, b) => {
+    const aCut = !a.made_cut || (a._live && a._live.status === 'cut') ? 1 : 0;
+    const bCut = !b.made_cut || (b._live && b._live.status === 'cut') ? 1 : 0;
+    if (aCut !== bCut) return aCut - bCut;
+    const aTP = a._live ? a._live.toPar : 999;
+    const bTP = b._live ? b._live.toPar : 999;
+    return aTP - bTP;
+  });
+
+  // Team total score
+  const ranking = getRanking();
+  const myTeam = ranking.find(t => t.name === S.myName);
+  const teamTotal = myTeam ? fmtScore(myTeam.total) : '—';
+  const teamCls = myTeam && myTeam.total !== null ? (myTeam.total < 0 ? 'under' : myTeam.total > 0 ? 'over' : 'even') : '';
+
+  let html = `<div class="mg-strip"><div class="mg-title">Meine Golfer <span class="mg-score ${teamCls}" style="font-size:14px;margin-left:6px">${teamTotal}</span></div><div class="mg-scroll">`;
+  for (const g of sortedGolfers) {
     const isCut = !g.made_cut || (g._live && g._live.status === 'cut');
     const isCounting = countingIds.has(g.id);
     const toPar = g._live ? g._live.toPar : null;
@@ -1160,18 +1176,18 @@ function detectTickerEvents() {
       for (const hole of roundHoles) {
         if (!hole.score || !hole.par) continue;
         const parVal = hole.par === 'E' ? 0 : parseInt(hole.par);
-        if (isNaN(parVal) || parVal === 0) continue; // skip pars
+        if (isNaN(parVal)) continue;
+        // Only true highlights: Eagles or better, Hole-in-Ones
+        if (parVal > -2) continue;
 
         const eventId = `${name}_r${r}_h${hole.hole}`;
         if (S.tickerSeen.has(eventId)) continue;
         S.tickerSeen.add(eventId);
 
         let emoji, label;
-        if (parVal <= -2) { emoji = '\ud83e\udd85'; label = 'Eagle'; }
-        else if (parVal === -1) { emoji = '\ud83d\udc26'; label = 'Birdie'; }
-        else if (parVal === 1) { emoji = '\ud83d\udfe1'; label = 'Bogey'; }
-        else if (parVal >= 2) { emoji = '\ud83d\udfe5'; label = 'Double Bogey'; }
-        else continue;
+        if (parVal <= -3) { emoji = '\ud83c\udf1f'; label = 'Albatross'; }
+        else if (hole.score === 1) { emoji = '\ud83d\udd25'; label = 'Hole-in-One'; }
+        else { emoji = '\ud83e\udd85'; label = 'Eagle'; }
 
         // Find team assignment for label
         const dg = S.golfers.find(g => normalizeName(g.name) === normalizeName(name));
@@ -1208,7 +1224,7 @@ function renderLiveFeed() {
   if (S.tickerFilter === 'mine') events = events.filter(e => e.isMine);
 
   if (events.length === 0) {
-    container.innerHTML = filterHtml + `<div class="tk-empty"><div class="tk-empty-icon">\u26A1</div><h3>Noch keine Highlights</h3><p>Events erscheinen sobald Spieler auf dem Platz sind</p></div>`;
+    container.innerHTML = filterHtml + `<div class="tk-empty"><div class="tk-empty-icon">\u26A1</div><h3>Noch keine Highlights</h3><p>Eagles, Hole-in-Ones und Albatrosse erscheinen hier</p></div>`;
     return;
   }
 
@@ -2300,7 +2316,7 @@ async function fetchLiveScores() {
         madeCut: !isWD && !isCut,
         currentRound,
         finished: finished || isWD,
-        headshot: c.id ? `https://a.espncdn.com/i/headshots/golf/players/small/${c.id}.png` : ''
+        headshot: c.id ? `https://a.espncdn.com/combiner/i?img=/i/headshots/golf/players/full/${c.id}.png&w=96&h=70` : ''
       };
     }
 
