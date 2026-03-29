@@ -850,6 +850,27 @@ function renderPayoutsView() {
   }
 }
 
+function buildPodiumHtml(activeRanking, p1, p2, p3) {
+  const places = [
+    { place: '1.', cls: 'gold', barCls: 'p1', amount: p1, name: activeRanking[0]?.name },
+    { place: '2.', cls: 'silver', barCls: 'p2', amount: p2, name: activeRanking[1]?.name },
+    { place: '3.', cls: 'bronze', barCls: 'p3', amount: p3, name: activeRanking[2]?.name }
+  ].filter(p => p.name);
+  const podiumOrder = places.length >= 2 ? [places[1], places[0], ...(places[2] ? [places[2]] : [])] : [...places];
+  let html = '<div class="podium">';
+  podiumOrder.forEach(p => {
+    const mine = S.myName && p.name === S.myName;
+    html += `<div class="podium-slot${mine ? ' mine' : ''}">
+      <div class="podium-place ${p.cls}">${p.place}</div>
+      <div class="podium-name">${esc(p.name)}</div>
+      <div class="podium-amount">${fmtMoney(p.amount)}</div>
+      <div class="podium-bar ${p.barCls}"></div>
+    </div>`;
+  });
+  html += '</div>';
+  return html;
+}
+
 function buildPersonalPayoutHtml(pot, ranking) {
   const p1 = Math.round(pot * 0.6);
   const p2 = Math.round(pot * 0.3);
@@ -859,7 +880,6 @@ function buildPersonalPayoutHtml(pot, ranking) {
   const myRanking = ranking.find(t => t.name === S.myName);
   const myActiveIdx = myRanking ? activeRanking.indexOf(myRanking) : -1;
 
-  // My payout
   let myPayout = 0;
   if (myActiveIdx === 0) myPayout = p1;
   else if (myActiveIdx === 1) myPayout = p2;
@@ -890,22 +910,19 @@ function buildPersonalPayoutHtml(pot, ranking) {
     if (debtors[di].remaining === 0) di++;
   }
 
-  // Filter to my transfers only
   const myTransfers = transfers.filter(t => t.from === S.myName || t.to === S.myName);
-
-  // Position info
   const posText = myRanking
     ? (myRanking.isEliminated ? 'Eliminiert' : `Platz ${myActiveIdx + 1} von ${activeRanking.length}`)
     : 'Nicht dabei';
-
-  // Net color
-  const netCls = myNet > 0 ? 'positive' : myNet < 0 ? 'negative' : '';
   const netColor = myNet > 0 ? 'var(--green)' : myNet < 0 ? 'var(--red)' : 'var(--text)';
 
   let html = '';
 
+  // Podium
+  html += buildPodiumHtml(activeRanking, p1, p2, p3);
+
   // Personal summary card
-  html += `<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;text-align:center;margin-bottom:16px;box-shadow:0 1px 3px rgba(0,0,0,.04)">
+  html += `<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;text-align:center;margin:16px 0;box-shadow:0 1px 3px rgba(0,0,0,.04)">
     <div style="font-size:13px;color:var(--text2);text-transform:uppercase;letter-spacing:.5px">${esc(S.myName)}</div>
     <div style="font-family:var(--font-display);font-size:40px;font-weight:700;color:${netColor};margin:8px 0">${myNet >= 0 ? '+' : ''}${fmtMoney(myNet)}</div>
     <div style="font-size:12px;color:var(--text3)">${posText}</div>
@@ -970,25 +987,7 @@ function buildPayoutHtml(pot, ranking) {
   }
 
   // Render — Podium + Transfer cards
-  const places = [
-    { place: '1.', cls: 'gold', barCls: 'p1', amount: p1, name: activeRanking[0]?.name },
-    { place: '2.', cls: 'silver', barCls: 'p2', amount: p2, name: activeRanking[1]?.name },
-    { place: '3.', cls: 'bronze', barCls: 'p3', amount: p3, name: activeRanking[2]?.name }
-  ].filter(p => p.name);
-
-  // Build podium (reorder: 2nd, 1st, 3rd for visual)
-  const podiumOrder = places.length >= 2 ? [places[1], places[0], ...(places[2] ? [places[2]] : [])] : [...places];
-  let podiumHtml = '<div class="podium">';
-  podiumOrder.forEach(p => {
-    const mine = S.myName && p.name === S.myName;
-    podiumHtml += `<div class="podium-slot${mine ? ' mine' : ''}">
-      <div class="podium-place ${p.cls}">${p.place}</div>
-      <div class="podium-name">${esc(p.name)}</div>
-      <div class="podium-amount">${fmtMoney(p.amount)}</div>
-      <div class="podium-bar ${p.barCls}"></div>
-    </div>`;
-  });
-  podiumHtml += '</div>';
+  const podiumHtml = buildPodiumHtml(activeRanking, p1, p2, p3);
 
   // Build transfer cards
   let transferHtml = '';
@@ -2081,7 +2080,7 @@ async function fetchLiveScores() {
         madeCut: !isWD && !isCut,
         currentRound,
         finished: finished || isWD,
-        headshot: athlete.headshot?.href || ''
+        headshot: c.id ? `https://a.espncdn.com/i/headshots/golf/players/full/${c.id}.png` : ''
       };
     }
 
