@@ -394,6 +394,10 @@ body::before{content:'';position:fixed;inset:0;background:
     <div class="header-title">Houston Open Pool</div>
     <div class="header-sub">Test · März 2026</div>
     <div class="live-badge stale" id="liveBadge" style="display:none"><div class="live-dot"></div><span id="liveText">Live</span></div>
+    <button class="header-admin" id="btnPush" style="right:52px;display:none" onclick="togglePushDropdown()">
+      <svg viewBox="0 0 24 24" id="pushIcon"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+    <div class="identity-dropdown" id="pushDropdown" style="right:40px;left:auto;width:220px"></div>
     <button class="header-admin" id="btnAdmin" onclick="toggleAdmin()">
       <svg viewBox="0 0 24 24"><path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </button>
@@ -698,20 +702,17 @@ function updateIdentityBar() {
     txt.textContent = '?';
     btn.classList.remove('set');
   }
+  updatePushUI();
 }
 
 function toggleIdentityDropdown() {
   const dd = document.getElementById('identityDropdown');
   if (dd.classList.contains('open')) { closeIdentityDropdown(); return; }
   const sorted = [...S.participants].sort((a, b) => a.name.localeCompare(b.name));
-  const pushBtn = ('PushManager' in window) && S.myName
-    ? `<div class="id-option" style="border-top:2px solid var(--border);color:var(--green);font-weight:600" onclick="event.stopPropagation();${S.pushEnabled ? 'unsubscribePush()' : 'subscribePush()'}">
-        ${S.pushEnabled ? '🔔 Benachrichtigungen aus' : '🔕 Benachrichtigungen an'}
-       </div>` : '';
   dd.innerHTML = `<div class="id-option none" onclick="setIdentity('')">Niemand (zurücksetzen)</div>` +
     sorted.map(p =>
       `<div class="id-option${p.name === S.myName ? ' active' : ''}" onclick="setIdentity('${esc(p.name)}')">${esc(p.name)}</div>`
-    ).join('') + pushBtn;
+    ).join('');
   dd.classList.add('open');
   // Close on outside click
   setTimeout(() => document.addEventListener('click', closeIdentityOnOutside, { once: true }), 10);
@@ -2707,12 +2708,60 @@ function urlBase64ToUint8Array(base64String) {
   return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
 }
 
+function togglePushDropdown() {
+  const dd = document.getElementById('pushDropdown');
+  if (dd.classList.contains('open')) { dd.classList.remove('open'); return; }
+
+  const myTeam = S.pushEnabled ? 'checked' : '';
+  const myFavs = S.pushFavs ? 'checked' : '';
+
+  dd.innerHTML = `
+    <div style="padding:12px 16px;font-size:12px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;font-weight:600;border-bottom:1px solid var(--border)">Benachrichtigungen</div>
+    <label class="id-option" style="display:flex;align-items:center;gap:10px;cursor:pointer" onclick="event.stopPropagation()">
+      <input type="checkbox" ${myTeam} onchange="togglePushOption('team', this.checked)" style="width:18px;height:18px;accent-color:var(--green)">
+      <div><div style="font-weight:600;font-size:13px">Meine Spieler</div><div style="font-size:11px;color:var(--text3)">Eagles & Doppel-Bogeys</div></div>
+    </label>
+    <label class="id-option" style="display:flex;align-items:center;gap:10px;cursor:pointer" onclick="event.stopPropagation()">
+      <input type="checkbox" ${myFavs} onchange="togglePushOption('favs', this.checked)" style="width:18px;height:18px;accent-color:var(--green)">
+      <div><div style="font-weight:600;font-size:13px">Favoriten</div><div style="font-size:11px;color:var(--text3)">Deine markierten Golfer</div></div>
+    </label>`;
+  dd.classList.add('open');
+  setTimeout(() => document.addEventListener('click', e => {
+    if (!e.target.closest('#pushDropdown') && !e.target.closest('#btnPush')) dd.classList.remove('open');
+  }, { once: true }), 10);
+}
+
+async function togglePushOption(type, enabled) {
+  if (type === 'team') {
+    if (enabled && !S.pushEnabled) {
+      await subscribePush();
+    } else if (!enabled && S.pushEnabled) {
+      await unsubscribePush();
+    }
+  } else if (type === 'favs') {
+    S.pushFavs = enabled;
+    localStorage.setItem('pga_test_push_favs', enabled ? 'true' : '');
+    // Update favorites in subscription
+    if (S.pushEnabled) {
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.getSubscription();
+      if (sub) {
+        const favList = enabled ? [...(S.favorites || [])] : [];
+        await sb.from('pga_test_push_subscriptions')
+          .update({ favorites: favList })
+          .eq('endpoint', sub.endpoint);
+      }
+    }
+  }
+  updatePushUI();
+}
+
 function updatePushUI() {
-  const btn = document.getElementById('pushToggle');
+  const btn = document.getElementById('btnPush');
   if (!btn) return;
-  if (!('PushManager' in window)) { btn.style.display = 'none'; return; }
-  btn.style.display = '';
-  btn.textContent = S.pushEnabled ? '🔔 Benachrichtigungen aus' : '🔕 Benachrichtigungen an';
+  const show = S.myName && ('PushManager' in window);
+  btn.style.display = show ? '' : 'none';
+  btn.classList.toggle('active', S.pushEnabled || S.pushFavs);
 }
 
 /* ===================== Start ===================== */
@@ -2720,6 +2769,7 @@ init().then(() => {
   startLiveRefresh();
   initServiceWorker();
   S.pushEnabled = localStorage.getItem('pga_test_push') === 'true';
+  S.pushFavs = localStorage.getItem('pga_test_push_favs') === 'true';
 });
 </script>
 </body>

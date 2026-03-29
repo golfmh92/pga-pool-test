@@ -7,7 +7,7 @@ crons = ["*/2 * * * *"]
 
 [[kv_namespaces]]
 binding = "KV"
-id = "" # Fill in after creating KV namespace: wrangler kv:namespace create "PGA_PUSH"
+id = "c3933db211ee4067a8cd5a39fd935db3"
 
 [vars]
 SUPABASE_URL = "https://wmqmufxyovfhxorzvrzn.supabase.co"
