@@ -2080,7 +2080,7 @@ async function fetchLiveScores() {
         madeCut: !isWD && !isCut,
         currentRound,
         finished: finished || isWD,
-        headshot: c.id ? `https://a.espncdn.com/i/headshots/golf/players/full/${c.id}.png` : ''
+        headshot: c.id ? `https://a.espncdn.com/i/headshots/golf/players/small/${c.id}.png` : ''
       };
     }
 
@@ -2091,6 +2091,8 @@ async function fetchLiveScores() {
     S.liveActive = anyonePlaying;
     updateLiveBadge(anyonePlaying);
     applyLiveScores();
+    // Preload headshot images in background
+    Object.values(scores).forEach(s => { if (s.headshot) { new Image().src = s.headshot; } });
     render();
   } catch (err) {
     console.warn('Live scoring fetch failed:', err);
