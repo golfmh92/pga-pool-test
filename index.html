@@ -263,8 +263,7 @@ body::before{content:'';position:fixed;inset:0;background:
 .st-val{font-family:var(--font-display);font-size:16px;font-weight:700;color:var(--text);flex-shrink:0}
 .st-more{padding:10px 16px;text-align:center;font-size:12px;color:var(--text3);cursor:pointer;border-top:1px solid var(--border);font-weight:500}
 .st-more:active{background:var(--bg2)}
-.st-top5 .st-row:nth-child(n+6){display:none}
-.st-top5 .st-row.mine{display:flex!important}
+.st-top3 .st-row:nth-child(n+4){display:none}
 
 /* Stats Slide-In Panel */
 .st-panel{position:fixed;inset:0;z-index:200;pointer-events:none;opacity:0;transition:opacity .25s}
@@ -999,15 +998,14 @@ function renderStats() {
     list.sort(cat.sort);
     if (list.length === 0) return;
 
-    const hasMore = list.length > 5;
+    const hasMore = list.length > 3;
     html += `<div class="st-category${ci < 4 ? ' open' : ''}" id="stCat${ci}">`;
     html += `<div class="st-category-header" onclick="this.parentElement.classList.toggle('open')">${cat.title} ${chevron}</div>`;
-    html += `<div class="st-body"><div class="${hasMore ? 'st-top5' : ''}" id="stList${ci}">`;
+    html += `<div class="st-body"><div class="${hasMore ? 'st-top3' : ''}" id="stList${ci}">`;
 
     list.forEach((p, i) => {
-      const mine = p.isMine ? ' mine' : '';
       const teamBadge = p.team ? `<span class="st-team">${esc(p.team)}</span>` : '';
-      html += `<div class="st-row${mine}">
+      html += `<div class="st-row">
         <div class="st-rank">${i + 1}</div>
         <div class="st-name">${esc(p.sn)}${teamBadge}</div>
         <div class="st-val">${cat.fmt(p)}</div>
