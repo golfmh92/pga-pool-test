@@ -1062,20 +1062,28 @@ function openStPanel(title, catIdx) {
   const panel = document.getElementById('stPanel');
   panel.classList.add('open');
 
-  // Swipe-to-close
+  // Swipe-to-close (only from left edge)
   const sheet = document.getElementById('stPanelSheet');
-  let startX = 0, dx = 0;
-  const onStart = e => { startX = e.touches[0].clientX; dx = 0; };
+  let startX = 0, dx = 0, swiping = false;
+  const onStart = e => {
+    startX = e.touches[0].clientX;
+    dx = 0;
+    swiping = startX < 50; // only trigger from left edge
+  };
   const onMove = e => {
+    if (!swiping) return;
     dx = e.touches[0].clientX - startX;
-    if (dx > 0) sheet.style.transform = `translateX(${dx}px)`;
+    if (dx > 0) {
+      sheet.style.transition = 'none';
+      sheet.style.transform = `translateX(${dx}px)`;
+    }
   };
   const onEnd = () => {
+    if (!swiping) return;
+    sheet.style.transition = '';
     sheet.style.transform = '';
     if (dx > 80) closeStPanel();
-    sheet.removeEventListener('touchstart', onStart);
-    sheet.removeEventListener('touchmove', onMove);
-    sheet.removeEventListener('touchend', onEnd);
+    swiping = false;
   };
   sheet.addEventListener('touchstart', onStart, { passive: true });
   sheet.addEventListener('touchmove', onMove, { passive: true });
@@ -2147,7 +2155,7 @@ function renderTournament() {
 function buildScorecardHeader(name, teamName, headshot) {
   const initials = name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
   const avatarHtml = headshot
-    ? `<img class="scorecard-avatar" src="${hiResHeadshot}" alt="" onerror="this.outerHTML='<div class=\\'scorecard-avatar-fallback\\'>${initials}</div>'">`
+    ? `<img class="scorecard-avatar" src="${headshot}" alt="" onerror="this.outerHTML='<div class=\\'scorecard-avatar-fallback\\'>${initials}</div>'">`
     : `<div class="scorecard-avatar-fallback">${initials}</div>`;
   const teamInfo = teamName ? `<div style="font-size:13px;color:var(--gold);font-weight:400;margin-top:1px">${esc(teamName)}</div>` : '';
   return `<div class="scorecard-header">${avatarHtml}<div class="scorecard-header-info"><div style="font-family:var(--font-display);font-size:20px;font-weight:600">${esc(name)}</div>${teamInfo}</div></div>`;
