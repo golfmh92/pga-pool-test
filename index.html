@@ -266,6 +266,17 @@ body::before{content:'';position:fixed;inset:0;background:
 .st-top5 .st-row:nth-child(n+6){display:none}
 .st-top5 .st-row.mine{display:flex!important}
 
+/* Stats Slide-In Panel */
+.st-panel{position:fixed;inset:0;z-index:200;pointer-events:none;opacity:0;transition:opacity .25s}
+.st-panel.open{pointer-events:auto;opacity:1}
+.st-panel-bg{position:absolute;inset:0;background:rgba(0,0,0,.3)}
+.st-panel-sheet{position:absolute;top:0;right:0;bottom:0;width:100%;max-width:500px;background:var(--bg);transform:translateX(100%);transition:transform .3s ease;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.st-panel.open .st-panel-sheet{transform:translateX(0)}
+.st-panel-header{display:flex;align-items:center;gap:10px;padding:16px;background:var(--card);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:1}
+.st-panel-back{width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:50%;color:var(--green);cursor:pointer}
+.st-panel-back:active{background:var(--bg2)}
+.st-panel-title{font-family:var(--font-display);font-size:18px;font-weight:600;color:var(--green)}
+
 /* ===== Round Tabs ===== */
 .round-tabs{display:flex;gap:6px;margin-bottom:16px}
 .round-tab{flex:1;padding:10px;text-align:center;border-radius:var(--radius-sm);font-size:13px;font-weight:600;background:var(--card);border:1px solid var(--border);color:var(--text2);transition:all .2s}
@@ -482,6 +493,18 @@ body::before{content:'';position:fixed;inset:0;background:
       <span>Regeln</span>
     </button>
   </nav>
+</div>
+
+<!-- Stats Slide-In Panel -->
+<div class="st-panel" id="stPanel">
+  <div class="st-panel-bg" onclick="closeStPanel()"></div>
+  <div class="st-panel-sheet" id="stPanelSheet">
+    <div class="st-panel-header">
+      <div class="st-panel-back" onclick="closeStPanel()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg></div>
+      <div class="st-panel-title" id="stPanelTitle"></div>
+    </div>
+    <div id="stPanelBody" style="padding:8px 0"></div>
+  </div>
 </div>
 
 <!-- FAB -->
@@ -991,7 +1014,7 @@ function renderStats() {
 
     html += '</div>';
     if (hasMore) {
-      html += `<div class="st-more" onclick="document.getElementById('stList${ci}').classList.toggle('st-top5');this.textContent=this.textContent==='Alle anzeigen'?'Weniger anzeigen':'Alle anzeigen'">Alle anzeigen</div>`;
+      html += `<div class="st-more" onclick="openStPanel('${cat.title}',${ci})">Alle anzeigen</div>`;
     }
     html += '</div></div>';
   });
@@ -999,10 +1022,75 @@ function renderStats() {
   container.innerHTML = html;
 }
 
+// Stats panel cache for slide-in
+let _statsCache = [];
+
+function openStPanel(title, catIdx) {
+  if (_statsCache.length === 0) _statsCache = computeAllStats();
+  const cats = [
+    { title: 'Meiste Birdies', sort: (a,b) => b.birdies - a.birdies, fmt: v => v.birdies },
+    { title: 'Meiste Eagles', sort: (a,b) => b.eagles - a.eagles, fmt: v => v.eagles, filter: p => p.eagles > 0 },
+    { title: 'Wenigste Bogeys', sort: (a,b) => a.bogeys - b.bogeys, fmt: v => v.bogeys },
+    { title: 'Scoring-Durchschnitt', sort: (a,b) => (a.scoringAvg||999) - (b.scoringAvg||999), fmt: v => v.scoringAvg !== null ? v.scoringAvg.toFixed(1) : '—', filter: p => p.scoringAvg !== null },
+    { title: 'Beste Par-3 Performance', sort: (a,b) => (a.par3Avg||99) - (b.par3Avg||99), fmt: v => v.par3Avg !== null ? v.par3Avg.toFixed(2) : '—', filter: p => p.par3Avg !== null },
+    { title: 'Beste Par-4 Performance', sort: (a,b) => (a.par4Avg||99) - (b.par4Avg||99), fmt: v => v.par4Avg !== null ? v.par4Avg.toFixed(2) : '—', filter: p => p.par4Avg !== null },
+    { title: 'Beste Par-5 Performance', sort: (a,b) => (a.par5Avg||99) - (b.par5Avg||99), fmt: v => v.par5Avg !== null ? v.par5Avg.toFixed(2) : '—', filter: p => p.par5Avg !== null },
+    { title: 'Beste Front 9', sort: (a,b) => (a.front9Avg||99) - (b.front9Avg||99), fmt: v => v.front9Avg !== null ? (v.front9Avg >= 0 ? '+' : '') + v.front9Avg.toFixed(2) : '—', filter: p => p.front9Avg !== null },
+    { title: 'Beste Back 9', sort: (a,b) => (a.back9Avg||99) - (b.back9Avg||99), fmt: v => v.back9Avg !== null ? (v.back9Avg >= 0 ? '+' : '') + v.back9Avg.toFixed(2) : '—', filter: p => p.back9Avg !== null },
+    { title: 'Längste Birdie-Streak', sort: (a,b) => b.birdieStreak - a.birdieStreak, fmt: v => v.birdieStreak, filter: p => p.birdieStreak > 0 },
+    { title: 'Bogey-Free Streak', sort: (a,b) => b.bogeyFreeStreak - a.bogeyFreeStreak, fmt: v => v.bogeyFreeStreak }
+  ];
+  const cat = cats[catIdx];
+  if (!cat) return;
+
+  let list = cat.filter ? _statsCache.filter(cat.filter) : [..._statsCache];
+  list.sort(cat.sort);
+
+  document.getElementById('stPanelTitle').textContent = title;
+  let html = '';
+  list.forEach((p, i) => {
+    const mine = p.isMine ? ' mine' : '';
+    const teamBadge = p.team ? `<span class="st-team">${esc(p.team)}</span>` : '';
+    html += `<div class="st-row${mine}" style="padding:10px 16px">
+      <div class="st-rank">${i + 1}</div>
+      <div class="st-name">${esc(p.sn)}${teamBadge}</div>
+      <div class="st-val">${cat.fmt(p)}</div>
+    </div>`;
+  });
+  document.getElementById('stPanelBody').innerHTML = html;
+
+  const panel = document.getElementById('stPanel');
+  panel.classList.add('open');
+
+  // Swipe-to-close
+  const sheet = document.getElementById('stPanelSheet');
+  let startX = 0, dx = 0;
+  const onStart = e => { startX = e.touches[0].clientX; dx = 0; };
+  const onMove = e => {
+    dx = e.touches[0].clientX - startX;
+    if (dx > 0) sheet.style.transform = `translateX(${dx}px)`;
+  };
+  const onEnd = () => {
+    sheet.style.transform = '';
+    if (dx > 80) closeStPanel();
+    sheet.removeEventListener('touchstart', onStart);
+    sheet.removeEventListener('touchmove', onMove);
+    sheet.removeEventListener('touchend', onEnd);
+  };
+  sheet.addEventListener('touchstart', onStart, { passive: true });
+  sheet.addEventListener('touchmove', onMove, { passive: true });
+  sheet.addEventListener('touchend', onEnd);
+}
+
+function closeStPanel() {
+  document.getElementById('stPanel').classList.remove('open');
+}
+
 function render() {
   updateIdentityBar();
   renderLeaderboard();
   renderTournament();
+  _statsCache = [];
   renderStats();
   renderPayoutsView();
   renderDraft();
