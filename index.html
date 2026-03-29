@@ -704,10 +704,14 @@ function toggleIdentityDropdown() {
   const dd = document.getElementById('identityDropdown');
   if (dd.classList.contains('open')) { closeIdentityDropdown(); return; }
   const sorted = [...S.participants].sort((a, b) => a.name.localeCompare(b.name));
+  const pushBtn = ('PushManager' in window) && S.myName
+    ? `<div class="id-option" style="border-top:2px solid var(--border);color:var(--green);font-weight:600" onclick="event.stopPropagation();${S.pushEnabled ? 'unsubscribePush()' : 'subscribePush()'}">
+        ${S.pushEnabled ? '🔔 Benachrichtigungen aus' : '🔕 Benachrichtigungen an'}
+       </div>` : '';
   dd.innerHTML = `<div class="id-option none" onclick="setIdentity('')">Niemand (zurücksetzen)</div>` +
     sorted.map(p =>
       `<div class="id-option${p.name === S.myName ? ' active' : ''}" onclick="setIdentity('${esc(p.name)}')">${esc(p.name)}</div>`
-    ).join('');
+    ).join('') + pushBtn;
   dd.classList.add('open');
   // Close on outside click
   setTimeout(() => document.addEventListener('click', closeIdentityOnOutside, { once: true }), 10);
@@ -2631,8 +2635,92 @@ function startLiveRefresh() {
 }
 
 
+/* ===================== Push Notifications ===================== */
+const VAPID_PUBLIC = 'BI69ibPpigizZExp4HprtpKc2KN5Hm3EufVvZovroOcFyebHXLnT7anSwj74HZUiw8C87PhrJpe9l-mbY28eJA4';
+
+async function initServiceWorker() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+  try {
+    await navigator.serviceWorker.register('sw.js');
+  } catch(e) { console.warn('SW registration failed:', e); }
+}
+
+async function subscribePush() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+    showToast('Push Notifications werden auf diesem Gerät nicht unterstützt');
+    return;
+  }
+  const permission = await Notification.requestPermission();
+  if (permission !== 'granted') {
+    showToast('Benachrichtigungen wurden blockiert');
+    return;
+  }
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC)
+    });
+    const json = sub.toJSON();
+    const myP = S.participants.find(p => p.name === S.myName);
+    if (!myP) { showToast('Bitte zuerst deinen Namen auswählen'); return; }
+
+    // Save to Supabase
+    const { error } = await sb.from('pga_test_push_subscriptions').upsert({
+      participant_id: myP.id,
+      endpoint: json.endpoint,
+      p256dh: json.keys.p256dh,
+      auth: json.keys.auth
+    }, { onConflict: 'endpoint' });
+
+    if (error) { showToast('Fehler beim Speichern: ' + error.message); return; }
+    localStorage.setItem('pga_test_push', 'true');
+    S.pushEnabled = true;
+    showToast('Benachrichtigungen aktiviert!');
+    updatePushUI();
+  } catch(e) {
+    console.error('Push subscribe error:', e);
+    showToast('Fehler: ' + e.message);
+  }
+}
+
+async function unsubscribePush() {
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.getSubscription();
+    if (sub) {
+      const endpoint = sub.endpoint;
+      await sub.unsubscribe();
+      await sb.from('pga_test_push_subscriptions').delete().eq('endpoint', endpoint);
+    }
+    localStorage.removeItem('pga_test_push');
+    S.pushEnabled = false;
+    showToast('Benachrichtigungen deaktiviert');
+    updatePushUI();
+  } catch(e) { console.warn('Unsubscribe error:', e); }
+}
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const raw = atob(base64);
+  return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
+}
+
+function updatePushUI() {
+  const btn = document.getElementById('pushToggle');
+  if (!btn) return;
+  if (!('PushManager' in window)) { btn.style.display = 'none'; return; }
+  btn.style.display = '';
+  btn.textContent = S.pushEnabled ? '🔔 Benachrichtigungen aus' : '🔕 Benachrichtigungen an';
+}
+
 /* ===================== Start ===================== */
-init().then(() => startLiveRefresh());
+init().then(() => {
+  startLiveRefresh();
+  initServiceWorker();
+  S.pushEnabled = localStorage.getItem('pga_test_push') === 'true';
+});
 </script>
 </body>
 </html>

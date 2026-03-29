@@ -95,6 +95,23 @@ create policy "Auth insert" on pga_test_bonuses for insert with check (auth.uid(
 create policy "Auth update" on pga_test_bonuses for update using (auth.uid() = user_id);
 create policy "Auth delete" on pga_test_bonuses for delete using (auth.uid() = user_id);
 
+-- 6. Push Subscriptions
+create table if not exists pga_test_push_subscriptions (
+  id uuid primary key default gen_random_uuid(),
+  participant_id uuid references pga_test_participants(id) on delete cascade not null,
+  endpoint text not null unique,
+  p256dh text not null,
+  auth text not null,
+  favorites jsonb default '[]'::jsonb,
+  created_at timestamptz default now()
+);
+
+alter table pga_test_push_subscriptions enable row level security;
+create policy "Public read push" on pga_test_push_subscriptions for select using (true);
+create policy "Public insert push" on pga_test_push_subscriptions for insert with check (true);
+create policy "Public update push" on pga_test_push_subscriptions for update using (true);
+create policy "Public delete push" on pga_test_push_subscriptions for delete using (true);
+
 -- =============================================================================
 -- Indexes
 -- =============================================================================
