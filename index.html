@@ -391,16 +391,13 @@ body::before{content:'';position:fixed;inset:0;background:
     <div class="header-avatar" id="avatarBtn" onclick="toggleIdentityDropdown()">
       <span id="avatarText">?</span>
     </div>
-    <div class="header-title">Houston Open Pool</div>
+    <div class="header-title" id="headerTitle">Houston Open Pool</div>
     <div class="header-sub">Test · März 2026</div>
     <div class="live-badge stale" id="liveBadge" style="display:none"><div class="live-dot"></div><span id="liveText">Live</span></div>
-    <button class="header-admin" id="btnPush" style="right:52px;display:none" onclick="togglePushDropdown()">
+    <button class="header-admin" id="btnPush" style="right:16px;display:none" onclick="togglePushDropdown()">
       <svg viewBox="0 0 24 24" id="pushIcon"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </button>
-    <div class="identity-dropdown" id="pushDropdown" style="right:40px;left:auto;width:220px"></div>
-    <button class="header-admin" id="btnAdmin" onclick="toggleAdmin()">
-      <svg viewBox="0 0 24 24"><path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" stroke-linecap="round" stroke-linejoin="round"/></svg>
-    </button>
+    <div class="identity-dropdown" id="pushDropdown" style="right:16px;left:auto;width:220px"></div>
     <div class="identity-dropdown" id="identityDropdown"></div>
   </div>
 
@@ -731,7 +728,7 @@ function closeIdentityOnOutside(e) {
 function setAdmin(yes, uid) {
   S.isAdmin = yes;
   S.userId = uid;
-  document.getElementById('btnAdmin').classList.toggle('active', yes);
+  // Admin button removed — login via long-press on title
   document.getElementById('tabDraft').classList.toggle('hidden', !yes);
   document.getElementById('fab').classList.toggle('hidden', !yes || !['draft','leaderboard'].includes(S.activeTab));
 }
@@ -2770,6 +2767,18 @@ init().then(() => {
   initServiceWorker();
   S.pushEnabled = localStorage.getItem('pga_test_push') === 'true';
   S.pushFavs = localStorage.getItem('pga_test_push_favs') === 'true';
+
+  // Long-press on title → admin login
+  let lpTimer = null;
+  const title = document.getElementById('headerTitle');
+  const startLp = () => { lpTimer = setTimeout(() => { if (navigator.vibrate) navigator.vibrate(50); toggleAdmin(); }, 2000); };
+  const cancelLp = () => { clearTimeout(lpTimer); };
+  title.addEventListener('touchstart', startLp, { passive: true });
+  title.addEventListener('touchend', cancelLp);
+  title.addEventListener('touchmove', cancelLp);
+  title.addEventListener('mousedown', startLp);
+  title.addEventListener('mouseup', cancelLp);
+  title.addEventListener('mouseleave', cancelLp);
 });
 </script>
 </body>
