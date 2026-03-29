@@ -1219,7 +1219,7 @@ function buildPersonalPayoutHtml(pot, ranking) {
 
   const myTransfers = transfers.filter(t => t.from === S.myName || t.to === S.myName);
   const posText = myRanking
-    ? (myRanking.isEliminated ? 'Eliminiert' : `Platz ${myActiveIdx + 1} von ${activeRanking.length}`)
+    ? (myRanking.isEliminated ? 'Eliminiert' : `Platz ${myActiveIdx + 1} von ${ranking.length}`)
     : 'Nicht dabei';
   const netColor = myNet > 0 ? 'var(--green)' : myNet < 0 ? 'var(--red)' : 'var(--text)';
 
