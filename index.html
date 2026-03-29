@@ -462,6 +462,7 @@ body::before{content:'';position:fixed;inset:0;background:
         </div>
         <div style="margin-top:8px;font-size:12px;color:var(--text3)">Pot = Mitspieler &times; 20&euro;</div>
       </div>
+      <div style="text-align:center;padding:30px 0 10px"><span style="font-size:11px;color:var(--text3);cursor:pointer;letter-spacing:.5px" onclick="toggleAdmin()">Admin</span></div>
     </div>
 
   </div>
@@ -2762,17 +2763,6 @@ init().then(() => {
   S.pushEnabled = localStorage.getItem('pga_test_push') === 'true';
   S.pushFavs = localStorage.getItem('pga_test_push_favs') === 'true';
 
-  // Long-press on title → admin login
-  let lpTimer = null;
-  const title = document.getElementById('headerTitle');
-  const startLp = () => { lpTimer = setTimeout(() => { if (navigator.vibrate) navigator.vibrate(50); toggleAdmin(); }, 2000); };
-  const cancelLp = () => { clearTimeout(lpTimer); };
-  title.addEventListener('touchstart', startLp, { passive: true });
-  title.addEventListener('touchend', cancelLp);
-  title.addEventListener('touchmove', cancelLp);
-  title.addEventListener('mousedown', startLp);
-  title.addEventListener('mouseup', cancelLp);
-  title.addEventListener('mouseleave', cancelLp);
 });
 </script>
 </body>
