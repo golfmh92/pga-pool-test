@@ -407,7 +407,6 @@ body::before{content:'';position:fixed;inset:0;background:
     <!-- LEADERBOARD -->
     <div class="view active" id="viewLeaderboard">
       <div id="meineGolferSection"></div>
-      <div class="stats-row" id="statsRow"></div>
       <input class="input" type="text" id="lbFilter" placeholder="Mitspieler suchen..." oninput="renderLeaderboard()" style="margin-bottom:12px">
       <div class="round-tabs" id="lbRoundTabs"></div>
       <div id="leaderboardList"></div>
@@ -1511,11 +1510,6 @@ function renderLeaderboard() {
   const pot = S.participants.length * ENTRY_FEE;
   const ranking = getRanking();
 
-  document.getElementById('statsRow').innerHTML = `
-    <div class="stat-card"><div class="stat-val">${S.participants.length}</div><div class="stat-label">Mitspieler</div></div>
-    <div class="stat-card"><div class="stat-val">${fmtMoney(pot)}</div><div class="stat-label">Pot</div></div>
-    <div class="stat-card"><div class="stat-val">${fmtMoney(pot*.6)}</div><div class="stat-label">1. Platz</div></div>
-  `;
 
 
   // Filter by search
