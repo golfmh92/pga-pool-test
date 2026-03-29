@@ -129,6 +129,32 @@ body::before{content:'';position:fixed;inset:0;background:
 .payout-card.open .toggle-arrow{transform:rotate(180deg)}
 .payout-card-body{max-height:0;overflow:hidden;transition:max-height .3s ease}
 .payout-card.open .payout-card-body{max-height:2000px}
+
+/* Podium */
+.podium{display:flex;align-items:flex-end;justify-content:center;gap:8px;padding:20px 16px 12px}
+.podium-slot{display:flex;flex-direction:column;align-items:center;flex:1;max-width:120px}
+.podium-place{font-family:var(--font-display);font-size:28px;font-weight:700;line-height:1}
+.podium-place.gold{color:var(--gold)}
+.podium-place.silver{color:var(--text3)}
+.podium-place.bronze{color:#CD7F32}
+.podium-name{font-size:13px;font-weight:600;color:var(--text);margin-top:4px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.podium-amount{font-family:var(--font-display);font-size:16px;font-weight:700;color:var(--green);margin-top:2px}
+.podium-bar{width:100%;border-radius:6px 6px 0 0;margin-top:6px}
+.podium-bar.p1{height:64px;background:linear-gradient(180deg,var(--gold),var(--gold2))}
+.podium-bar.p2{height:44px;background:linear-gradient(180deg,var(--text3),#6B7280)}
+.podium-bar.p3{height:28px;background:linear-gradient(180deg,#CD7F32,#A0653C)}
+.podium-slot.mine .podium-name{color:var(--green)}
+
+/* Transfer cards */
+.transfer-section{padding:12px 16px}
+.transfer-section-title{font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;font-weight:600;margin-bottom:8px}
+.transfer-card{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg);border-radius:var(--radius-sm);margin-bottom:6px}
+.transfer-card.mine{background:var(--green-dim);border:1px solid rgba(27,58,92,.15)}
+.transfer-from{font-weight:500;font-size:13px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.transfer-arrow{color:var(--text3);flex-shrink:0;display:flex;align-items:center}
+.transfer-to{font-weight:600;font-size:13px;color:var(--green);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:right}
+.transfer-amount{font-family:var(--font-display);font-size:15px;font-weight:700;color:var(--green);flex-shrink:0;margin-left:4px}
+
 .payout-row{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-bottom:1px solid var(--border);font-size:14px}
 .payout-row:last-child{border-bottom:none}
 .payout-row .payout-name{font-weight:500}
@@ -866,43 +892,41 @@ function buildPayoutHtml(pot, ranking) {
     if (debtors[di].remaining === 0) di++;
   }
 
-  // Render
-  let rows = '';
-
-  // Podium summary
+  // Render — Podium + Transfer cards
   const places = [
-    { label: '1.', amount: p1, name: activeRanking[0]?.name },
-    { label: '2.', amount: p2, name: activeRanking[1]?.name },
-    { label: '3.', amount: p3, name: activeRanking[2]?.name }
+    { place: '1.', cls: 'gold', barCls: 'p1', amount: p1, name: activeRanking[0]?.name },
+    { place: '2.', cls: 'silver', barCls: 'p2', amount: p2, name: activeRanking[1]?.name },
+    { place: '3.', cls: 'bronze', barCls: 'p3', amount: p3, name: activeRanking[2]?.name }
   ].filter(p => p.name);
 
-  rows += '<div style="padding:12px 16px 8px;font-size:12px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;font-weight:600">Gewinner</div>';
-  places.forEach(p => {
+  // Build podium (reorder: 2nd, 1st, 3rd for visual)
+  const podiumOrder = places.length >= 2 ? [places[1], places[0], ...(places[2] ? [places[2]] : [])] : [...places];
+  let podiumHtml = '<div class="podium">';
+  podiumOrder.forEach(p => {
     const mine = S.myName && p.name === S.myName;
-    rows += `<div class="payout-row${mine ? ' mine' : ''}">
-      <div><span style="font-size:12px;color:var(--gold2);font-weight:700;margin-right:4px">${p.label}</span><span class="payout-name">${esc(p.name)}</span></div>
-      <div class="payout-amount positive">${fmtMoney(p.amount)}</div>
+    podiumHtml += `<div class="podium-slot${mine ? ' mine' : ''}">
+      <div class="podium-place ${p.cls}">${p.place}</div>
+      <div class="podium-name">${esc(p.name)}</div>
+      <div class="podium-amount">${fmtMoney(p.amount)}</div>
+      <div class="podium-bar ${p.barCls}"></div>
     </div>`;
   });
+  podiumHtml += '</div>';
 
-  // Transfers grouped by recipient
-  rows += '<div style="padding:12px 16px 8px;font-size:12px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;font-weight:600;border-top:1px solid var(--border);margin-top:4px">Wer zahlt wem</div>';
-  // Group by recipient for clarity
-  const byRecipient = {};
-  transfers.forEach(t => {
-    if (!byRecipient[t.to]) byRecipient[t.to] = [];
-    byRecipient[t.to].push(t);
-  });
-  for (const [recipient, txns] of Object.entries(byRecipient)) {
-    const recipientIsMine = S.myName && recipient === S.myName;
-    rows += `<div style="padding:8px 16px 4px;font-size:12px;color:var(--green);font-weight:600">${recipientIsMine ? 'An dich (' + esc(recipient) + '):' : 'An ' + esc(recipient) + ':'}</div>`;
-    txns.forEach(t => {
-      const mine = S.myName && (t.from === S.myName || recipient === S.myName);
-      rows += `<div class="payout-row${mine ? ' mine' : ''}">
-        <div class="payout-name">${esc(t.from)}</div>
-        <div class="payout-amount">${fmtMoney(t.amount)}</div>
+  // Build transfer cards
+  let transferHtml = '';
+  if (transfers.length > 0) {
+    transferHtml += '<div class="transfer-section"><div class="transfer-section-title">Abrechnung</div>';
+    transfers.forEach(t => {
+      const mine = S.myName && (t.from === S.myName || t.to === S.myName);
+      transferHtml += `<div class="transfer-card${mine ? ' mine' : ''}">
+        <span class="transfer-from">${esc(t.from)}</span>
+        <span class="transfer-arrow"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14m-7-7 7 7-7 7"/></svg></span>
+        <span class="transfer-to">${esc(t.to)}</span>
+        <span class="transfer-amount">${fmtMoney(t.amount)}</span>
       </div>`;
     });
+    transferHtml += '</div>';
   }
 
   return `<div class="payout-card open">
@@ -910,7 +934,11 @@ function buildPayoutHtml(pot, ranking) {
       <span>Payouts &amp; Abrechnung</span>
       <svg class="toggle-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>
     </div>
-    <div class="payout-card-body">${rows}</div>
+    <div class="payout-card-body">
+      ${podiumHtml}
+      <div style="border-top:1px solid var(--border)"></div>
+      ${transferHtml}
+    </div>
   </div>`;
 }
 
@@ -2005,8 +2033,10 @@ async function fetchLiveScores() {
 
     S.liveScores = scores;
     S.liveLastUpdate = new Date();
-    S.liveActive = Object.keys(scores).length > 0;
-    updateLiveBadge(true);
+    // Only show "Live" if at least one player is currently mid-round (not finished)
+    const anyonePlaying = Object.values(scores).some(s => !s.finished && s.currentRound > 0);
+    S.liveActive = anyonePlaying;
+    updateLiveBadge(anyonePlaying);
     applyLiveScores();
     render();
   } catch (err) {
