@@ -113,6 +113,14 @@ body::before{content:'';position:fixed;inset:0;background:
 .lb-golfer-chip.counting{background:var(--green-dim);color:var(--green);font-weight:500}
 .lb-golfer-chip.cut{opacity:.4;text-decoration:line-through}
 
+/* Favorites */
+.fav-btn{width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:50%;flex-shrink:0;color:var(--text3);transition:all .15s}
+.fav-btn:active{transform:scale(.85)}
+.fav-btn.active{color:var(--gold)}
+.fav-btn svg{width:16px;height:16px}
+.fav-divider{font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;font-weight:600;padding:8px 4px 6px;display:flex;align-items:center;gap:8px}
+.fav-divider::after{content:'';flex:1;height:1px;background:var(--border)}
+
 .lb-entry{cursor:pointer;flex-wrap:wrap}
 .lb-toggle{width:20px;display:flex;align-items:center;justify-content:center;color:var(--text3);flex-shrink:0;transition:transform .2s}
 .lb-entry.open .lb-toggle{transform:rotate(180deg)}
@@ -203,27 +211,10 @@ body::before{content:'';position:fixed;inset:0;background:
 .draft-round-label{font-family:var(--font-display);font-size:16px;font-weight:600;color:var(--green);padding:12px 0 6px;letter-spacing:1px}
 .draft-empty{color:var(--text3);font-style:italic}
 
-/* ===== Scoring (Admin) ===== */
+/* ===== Round Tabs ===== */
 .round-tabs{display:flex;gap:6px;margin-bottom:16px}
 .round-tab{flex:1;padding:10px;text-align:center;border-radius:var(--radius-sm);font-size:13px;font-weight:600;background:var(--card);border:1px solid var(--border);color:var(--text2);transition:all .2s}
 .round-tab.active{background:var(--green);border-color:var(--green);color:#fff}
-.score-group{margin-bottom:20px}
-.score-group-title{font-family:var(--font-display);font-size:16px;font-weight:600;color:var(--text);margin-bottom:8px;padding-left:4px}
-.score-row{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:6px;box-shadow:0 1px 2px rgba(0,0,0,.03)}
-.score-row .golfer-name{flex:1;font-size:14px}
-.score-input{width:56px;padding:8px;text-align:center;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:15px;font-weight:600}
-.score-input:focus{border-color:var(--green)}
-.cut-toggle{width:36px;height:20px;border-radius:10px;background:var(--green);position:relative;transition:background .2s;flex-shrink:0;cursor:pointer}
-.cut-toggle.missed{background:var(--red)}
-.cut-toggle::after{content:'';position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff;transition:transform .2s}
-.cut-toggle.missed::after{transform:translateX(16px)}
-
-/* ===== Bonus Section ===== */
-.bonus-section{margin-top:20px;padding:16px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:0 1px 3px rgba(0,0,0,.04)}
-.bonus-title{font-family:var(--font-display);font-size:16px;font-weight:600;color:var(--green);margin-bottom:12px}
-.bonus-row{display:flex;align-items:center;gap:10px;margin-bottom:8px}
-.bonus-row select{flex:1;padding:10px 12px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;-webkit-appearance:none;appearance:none}
-.bonus-row .btn-sm{white-space:nowrap}
 
 /* ===== Rules ===== */
 .rule-section{margin-bottom:20px}
@@ -370,11 +361,6 @@ body::before{content:'';position:fixed;inset:0;background:
       <div id="payoutsViewContent"></div>
     </div>
 
-    <!-- SCORING (admin) -->
-    <div class="view" id="viewScoring">
-      <div id="scoringContent"></div>
-    </div>
-
     <!-- RULES -->
     <div class="view" id="viewRules">
       <div class="rule-section">
@@ -425,10 +411,6 @@ body::before{content:'';position:fixed;inset:0;background:
     <button class="tab hidden" data-tab="draft" id="tabDraft" onclick="switchTab('draft')">
       <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
       <span>Draft</span>
-    </button>
-    <button class="tab hidden" data-tab="scoring" id="tabScoring" onclick="switchTab('scoring')">
-      <svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-      <span>Scoring</span>
     </button>
     <button class="tab" data-tab="rules" onclick="switchTab('rules')">
       <svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
@@ -597,6 +579,8 @@ async function init() {
   }
   // Restore identity from localStorage
   S.myName = localStorage.getItem('pga_test_identity') || '';
+  // Restore favorites
+  try { S.favorites = new Set(JSON.parse(localStorage.getItem('pga_test_favs') || '[]')); } catch(e) { S.favorites = new Set(); }
   await loadAll();
   updateIdentityBar();
   render();
@@ -650,7 +634,6 @@ function setAdmin(yes, uid) {
   S.isAdmin = yes;
   S.userId = uid;
   document.getElementById('btnAdmin').classList.toggle('active', yes);
-  document.getElementById('tabScoring').classList.toggle('hidden', !yes);
   document.getElementById('tabDraft').classList.toggle('hidden', !yes);
   document.getElementById('fab').classList.toggle('hidden', !yes || !['draft','leaderboard'].includes(S.activeTab));
 }
@@ -808,7 +791,6 @@ function render() {
   renderTournament();
   renderPayoutsView();
   renderDraft();
-  if (S.isAdmin) renderScoring();
   updateFab();
 }
 
@@ -929,17 +911,20 @@ function buildPayoutHtml(pot, ranking) {
     transferHtml += '</div>';
   }
 
-  return `<div class="payout-card open">
-    <div class="payout-card-header" onclick="this.parentElement.classList.toggle('open')">
-      <span>Payouts &amp; Abrechnung</span>
-      <svg class="toggle-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>
-    </div>
-    <div class="payout-card-body">
+  return `<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.04)">
       ${podiumHtml}
       <div style="border-top:1px solid var(--border)"></div>
       ${transferHtml}
-    </div>
   </div>`;
+}
+
+function toggleFavorite(name, ev) {
+  ev.stopPropagation();
+  if (!S.favorites) S.favorites = new Set();
+  if (S.favorites.has(name)) S.favorites.delete(name);
+  else S.favorites.add(name);
+  localStorage.setItem('pga_test_favs', JSON.stringify([...S.favorites]));
+  renderLeaderboard();
 }
 
 function renderLeaderboard() {
@@ -992,16 +977,22 @@ function renderLeaderboard() {
     });
   }
 
+  // Compute ranks first
   let rank = 0;
-  document.getElementById('leaderboardList').innerHTML = filteredRanking.map((t, i) => {
+  filteredRanking.forEach((t, i) => {
     if (!t.isEliminated) rank = i + 1;
+    t._rank = t.isEliminated ? 0 : rank;
+  });
+
+  function renderLbEntry(t) {
     const trophyIcon = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#E63946" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4a2 2 0 01-2-2V5h4"/><path d="M18 9h2a2 2 0 002-2V5h-4"/><path d="M4 5h16v4a6 6 0 01-6 6h-4a6 6 0 01-6-6V5z"/><path d="M12 15v3"/><path d="M8 21h8"/></svg>`;
-    const rankDisplay = t.isEliminated ? '&times;' : (rank === 1 ? trophyIcon : rank);
+    const rankDisplay = t.isEliminated ? '&times;' : (t._rank === 1 ? trophyIcon : t._rank);
     const isMine = S.myName && t.name === S.myName;
+    const isFav = S.favorites && S.favorites.has(t.name);
     const cls = [
       'lb-entry',
       t.isEliminated ? 'eliminated' : '',
-      rank === 1 && !t.isEliminated ? 'rank-1' : '',
+      t._rank === 1 && !t.isEliminated ? 'rank-1' : '',
       isMine ? 'mine' : ''
     ].filter(Boolean).join(' ');
 
@@ -1093,6 +1084,9 @@ function renderLeaderboard() {
       expandHtml += '</div>';
     }
 
+    const starSvg = isFav
+      ? `<svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 22 12 18.27 5.82 22 7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>`
+      : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 22 12 18.27 5.82 22 7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>`;
     const bonusHtml = t.bonus > 0 ? `<div class="lb-bonus">Bonus: -${t.bonus}</div>` : '';
     const elimBadge = t.isEliminated ? '<span class="eliminated-badge">ELIMINATED</span>' : '';
     const chevron = teamGolfers.length > 0 ? `<div class="lb-toggle"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg></div>` : '';
@@ -1106,10 +1100,26 @@ function renderLeaderboard() {
         <div class="lb-total ${totalCls}">${fmtScore(displayScore)}</div>
         ${rd === 0 ? bonusHtml : ''}
       </div>
+      <button class="fav-btn${isFav ? ' active' : ''}" onclick="toggleFavorite('${esc(t.name)}', event)">${starSvg}</button>
       ${chevron}
       <div class="lb-expand">${expandHtml}</div>
     </div>`;
-  }).join('');
+  }
+
+  // Split into favorites and rest
+  const favNames = S.favorites || new Set();
+  const favEntries = filteredRanking.filter(t => favNames.has(t.name));
+  const restEntries = filteredRanking.filter(t => !favNames.has(t.name));
+
+  let html = '';
+  if (favEntries.length > 0) {
+    html += '<div class="fav-divider">Favoriten</div>';
+    html += favEntries.map(renderLbEntry).join('');
+    html += '<div class="fav-divider">Alle Spieler</div>';
+  }
+  html += restEntries.map(renderLbEntry).join('');
+
+  document.getElementById('leaderboardList').innerHTML = html;
 
   // Restore open state after re-render
   openEntries.forEach(id => {
@@ -1255,59 +1265,6 @@ function renderDraft() {
   c.innerHTML = html;
 }
 
-function renderScoring() {
-  if (!S.isAdmin) return;
-  const c = document.getElementById('scoringContent');
-
-  let html = '<div class="round-tabs">';
-  for (let r = 1; r <= 4; r++) {
-    html += `<button class="round-tab ${S.scoringRound === r ? 'active' : ''}" onclick="setScoringRound(${r})">R${r}</button>`;
-  }
-  html += '</div>';
-
-  // Group golfers by team
-  for (const p of S.participants) {
-    const teamGolfers = S.golfers.filter(g => g.participant_id === p.id);
-    if (teamGolfers.length === 0) continue;
-    html += `<div class="score-group">`;
-    html += `<div class="score-group-title">${esc(p.name)}</div>`;
-    for (const g of teamGolfers) {
-      const sc = getGolferScore(g.id, S.scoringRound);
-      const cutDisabled = S.scoringRound < 3 ? 'style="visibility:hidden"' : '';
-      html += `<div class="score-row">
-        <div class="golfer-name">${esc(g.name)}</div>
-        <input class="score-input" type="number" inputmode="numeric" value="${sc !== null ? sc : ''}" placeholder="${PAR}"
-          onchange="saveScore('${g.id}',${S.scoringRound},this.value)">
-        <div class="cut-toggle ${!g.made_cut ? 'missed' : ''}" ${cutDisabled}
-          onclick="toggleCut('${g.id}')" title="${g.made_cut ? 'Made Cut' : 'Missed Cut'}"></div>
-      </div>`;
-    }
-    html += '</div>';
-  }
-
-  // Bonus section
-  html += `<div class="bonus-section">
-    <div class="bonus-title">Par 3 Contest Bonuses</div>`;
-
-  const existingBonuses = S.bonuses.map(b => {
-    const golfer = S.golfers.find(g => g.id === b.golfer_id);
-    const team = S.participants.find(p => p.id === b.participant_id);
-    const label = b.bonus_type === 'par3_win' ? 'Par 3 Gewinner (-2)' : 'HIO (-1)';
-    const who = golfer ? esc(golfer.name) : (team ? esc(team.name) : '?');
-    const teamName = golfer && team ? ` <span style="color:var(--text3)">(${esc(team.name)})</span>` : '';
-    return `<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">
-      <span style="font-size:13px">${who}${teamName} — ${label}</span>
-      <button class="btn btn-danger btn-sm" onclick="removeBonus('${b.id}')">Entfernen</button>
-    </div>`;
-  }).join('');
-  html += existingBonuses;
-
-  html += `<button class="btn btn-secondary btn-sm btn-block" style="margin-top:12px" onclick="openBonusModal()">+ Bonus hinzuf&uuml;gen</button>`;
-  html += '</div>';
-
-  c.innerHTML = html;
-}
-
 /* ===================== Tab Switching ===================== */
 function switchTab(tab) {
   S.activeTab = tab;
@@ -1333,7 +1290,6 @@ function toggleAdmin() {
   if (S.isAdmin) {
     sb.auth.signOut();
     setAdmin(false, null);
-    if (S.activeTab === 'scoring') switchTab('leaderboard');
     render();
     showToast('Abgemeldet');
   } else {
@@ -1465,11 +1421,6 @@ async function toggleCut(golferId) {
   await sb.from('pga_test_golfers').update({ made_cut: !g.made_cut }).eq('id', golferId);
   await loadAll();
   render();
-}
-
-function setScoringRound(r) {
-  S.scoringRound = r;
-  renderScoring();
 }
 
 function openBonusModal() {
