@@ -247,6 +247,25 @@ body::before{content:'';position:fixed;inset:0;background:
 .tk-empty{text-align:center;padding:40px 20px;color:var(--text3)}
 .tk-empty-icon{font-size:40px;margin-bottom:8px}
 
+/* ===== Stats Tab ===== */
+.st-category{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.04)}
+.st-category-header{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;cursor:pointer;font-family:var(--font-display);font-size:16px;font-weight:600;color:var(--green)}
+.st-category-header .st-toggle{color:var(--text3);transition:transform .2s}
+.st-category.open .st-toggle{transform:rotate(180deg)}
+.st-body{max-height:0;overflow:hidden;transition:max-height .3s ease}
+.st-category.open .st-body{max-height:3000px}
+.st-row{display:flex;align-items:center;gap:10px;padding:8px 16px;border-top:1px solid var(--border);font-size:13px}
+.st-row.mine{background:var(--green-dim)}
+.st-rank{width:24px;font-family:var(--font-display);font-size:16px;font-weight:700;color:var(--text3);text-align:center;flex-shrink:0}
+.st-row:nth-child(-n+3) .st-rank{color:var(--gold)}
+.st-name{flex:1;font-weight:500;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.st-team{font-size:10px;color:var(--gold);margin-left:4px}
+.st-val{font-family:var(--font-display);font-size:16px;font-weight:700;color:var(--text);flex-shrink:0}
+.st-more{padding:10px 16px;text-align:center;font-size:12px;color:var(--text3);cursor:pointer;border-top:1px solid var(--border);font-weight:500}
+.st-more:active{background:var(--bg2)}
+.st-top5 .st-row:nth-child(n+6){display:none}
+.st-top5 .st-row.mine{display:flex!important}
+
 /* ===== Round Tabs ===== */
 .round-tabs{display:flex;gap:6px;margin-bottom:16px}
 .round-tab{flex:1;padding:10px;text-align:center;border-radius:var(--radius-sm);font-size:13px;font-weight:600;background:var(--card);border:1px solid var(--border);color:var(--text2);transition:all .2s}
@@ -393,6 +412,11 @@ body::before{content:'';position:fixed;inset:0;background:
       <div id="draftContent"></div>
     </div>
 
+    <!-- STATS -->
+    <div class="view" id="viewStats">
+      <div id="statsContent"></div>
+    </div>
+
     <!-- PAYOUTS -->
     <div class="view" id="viewPayouts">
       <div id="payoutsViewContent"></div>
@@ -440,6 +464,10 @@ body::before{content:'';position:fixed;inset:0;background:
     <button class="tab" data-tab="tournament" onclick="switchTab('tournament')">
       <svg viewBox="0 0 24 24"><path d="M3 3h18v18H3z" fill="none" stroke="currentColor" stroke-width="0"/><path d="M16 3l5 5-11 11-5-1 1-5L16 3z"/><path d="M14 7l3 3"/></svg>
       <span>Leaderboard</span>
+    </button>
+    <button class="tab" data-tab="stats" onclick="switchTab('stats')">
+      <svg viewBox="0 0 24 24"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+      <span>Stats</span>
     </button>
     <button class="tab" data-tab="payouts" onclick="switchTab('payouts')">
       <svg viewBox="0 0 24 24"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
@@ -827,10 +855,155 @@ function fmtMoney(val) {
 }
 
 /* ===================== Render ===================== */
+function computeAllStats() {
+  const entries = Object.entries(S.liveScores);
+  if (entries.length === 0) return [];
+
+  // Find user's golfer names for .mine marking
+  const myP = S.myName ? S.participants.find(p => p.name === S.myName) : null;
+  const myGolferNames = new Set();
+  if (myP) {
+    S.golfers.filter(g => g.participant_id === myP.id).forEach(g => {
+      myGolferNames.add(normalizeName(g.name));
+    });
+  }
+
+  const players = [];
+  for (const [name, data] of entries) {
+    if (!data.holes) continue;
+    const dg = S.golfers.find(g => normalizeName(g.name) === normalizeName(name));
+    const team = dg ? S.participants.find(p => p.id === dg.participant_id) : null;
+    const isMine = myGolferNames.has(normalizeName(name));
+
+    let birdies = 0, eagles = 0, pars = 0, bogeys = 0, doubles = 0, totalHoles = 0;
+    let par3 = { sum: 0, n: 0 }, par4 = { sum: 0, n: 0 }, par5 = { sum: 0, n: 0 };
+    let front9 = { sum: 0, n: 0 }, back9 = { sum: 0, n: 0 };
+    let roundScores = [];
+    let allParVals = []; // for streaks
+
+    for (let r = 1; r <= 4; r++) {
+      const rh = data.holes['r' + r];
+      if (!rh || rh.length === 0) continue;
+      let roundTotal = 0;
+      rh.forEach(h => {
+        const pv = h.par === 'E' ? 0 : parseInt(h.par);
+        if (isNaN(pv)) return;
+        totalHoles++;
+        allParVals.push(pv);
+
+        if (pv <= -2) eagles++;
+        else if (pv === -1) birdies++;
+        else if (pv === 0) pars++;
+        else if (pv === 1) bogeys++;
+        else if (pv >= 2) doubles++;
+
+        // Par type performance
+        const holePar = h.score - pv;
+        if (holePar === 3) { par3.sum += h.score; par3.n++; }
+        else if (holePar === 4) { par4.sum += h.score; par4.n++; }
+        else if (holePar === 5) { par5.sum += h.score; par5.n++; }
+
+        // Front/Back
+        if (h.hole <= 9) { front9.sum += pv; front9.n++; }
+        else { back9.sum += pv; back9.n++; }
+
+        roundTotal += h.score;
+      });
+      if (rh.length >= 18) roundScores.push(roundTotal);
+    }
+
+    if (totalHoles === 0) continue;
+
+    // Streaks
+    let maxBirdieStreak = 0, curBirdie = 0;
+    let maxBogeyFree = 0, curBogeyFree = 0;
+    allParVals.forEach(pv => {
+      if (pv <= -1) { curBirdie++; maxBirdieStreak = Math.max(maxBirdieStreak, curBirdie); }
+      else curBirdie = 0;
+      if (pv <= 0) { curBogeyFree++; maxBogeyFree = Math.max(maxBogeyFree, curBogeyFree); }
+      else curBogeyFree = 0;
+    });
+
+    const sn = shortName(name);
+    players.push({
+      name, sn, team: team?.name || null, isMine,
+      birdies, eagles, pars, bogeys, doubles, totalHoles,
+      scoringAvg: roundScores.length > 0 ? roundScores.reduce((a,b) => a+b, 0) / roundScores.length : null,
+      par3Avg: par3.n > 0 ? par3.sum / par3.n : null,
+      par4Avg: par4.n > 0 ? par4.sum / par4.n : null,
+      par5Avg: par5.n > 0 ? par5.sum / par5.n : null,
+      front9Avg: front9.n > 0 ? front9.sum / front9.n : null,
+      back9Avg: back9.n > 0 ? back9.sum / back9.n : null,
+      birdieStreak: maxBirdieStreak,
+      bogeyFreeStreak: maxBogeyFree,
+      rounds: roundScores.length
+    });
+  }
+  return players;
+}
+
+function renderStats() {
+  const container = document.getElementById('statsContent');
+  if (!container) return;
+
+  const players = computeAllStats();
+  if (players.length === 0) {
+    container.innerHTML = '<div class="tk-empty"><div class="tk-empty-icon">&#128202;</div><h3>Keine Stats</h3><p>Stats werden berechnet sobald Live-Daten vorhanden sind</p></div>';
+    return;
+  }
+
+  const chevron = `<svg class="st-toggle" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>`;
+
+  const categories = [
+    { title: 'Meiste Birdies', key: 'birdies', sort: (a,b) => b.birdies - a.birdies, fmt: v => v.birdies },
+    { title: 'Meiste Eagles', key: 'eagles', sort: (a,b) => b.eagles - a.eagles, fmt: v => v.eagles, filter: p => p.eagles > 0 },
+    { title: 'Wenigste Bogeys', key: 'bogeys', sort: (a,b) => a.bogeys - b.bogeys, fmt: v => v.bogeys },
+    { title: 'Scoring-Durchschnitt', key: 'scoringAvg', sort: (a,b) => (a.scoringAvg||999) - (b.scoringAvg||999), fmt: v => v.scoringAvg !== null ? v.scoringAvg.toFixed(1) : '—', filter: p => p.scoringAvg !== null },
+    { title: 'Beste Par-3 Performance', key: 'par3Avg', sort: (a,b) => (a.par3Avg||99) - (b.par3Avg||99), fmt: v => v.par3Avg !== null ? v.par3Avg.toFixed(2) : '—', filter: p => p.par3Avg !== null },
+    { title: 'Beste Par-4 Performance', key: 'par4Avg', sort: (a,b) => (a.par4Avg||99) - (b.par4Avg||99), fmt: v => v.par4Avg !== null ? v.par4Avg.toFixed(2) : '—', filter: p => p.par4Avg !== null },
+    { title: 'Beste Par-5 Performance', key: 'par5Avg', sort: (a,b) => (a.par5Avg||99) - (b.par5Avg||99), fmt: v => v.par5Avg !== null ? v.par5Avg.toFixed(2) : '—', filter: p => p.par5Avg !== null },
+    { title: 'Beste Front 9', key: 'front9Avg', sort: (a,b) => (a.front9Avg||99) - (b.front9Avg||99), fmt: v => v.front9Avg !== null ? (v.front9Avg >= 0 ? '+' : '') + v.front9Avg.toFixed(2) : '—', filter: p => p.front9Avg !== null },
+    { title: 'Beste Back 9', key: 'back9Avg', sort: (a,b) => (a.back9Avg||99) - (b.back9Avg||99), fmt: v => v.back9Avg !== null ? (v.back9Avg >= 0 ? '+' : '') + v.back9Avg.toFixed(2) : '—', filter: p => p.back9Avg !== null },
+    { title: 'Längste Birdie-Streak', key: 'birdieStreak', sort: (a,b) => b.birdieStreak - a.birdieStreak, fmt: v => v.birdieStreak, filter: p => p.birdieStreak > 0 },
+    { title: 'Bogey-Free Streak', key: 'bogeyFreeStreak', sort: (a,b) => b.bogeyFreeStreak - a.bogeyFreeStreak, fmt: v => v.bogeyFreeStreak }
+  ];
+
+  let html = '';
+  categories.forEach((cat, ci) => {
+    let list = cat.filter ? players.filter(cat.filter) : [...players];
+    list.sort(cat.sort);
+    if (list.length === 0) return;
+
+    const hasMore = list.length > 5;
+    html += `<div class="st-category${ci < 4 ? ' open' : ''}" id="stCat${ci}">`;
+    html += `<div class="st-category-header" onclick="this.parentElement.classList.toggle('open')">${cat.title} ${chevron}</div>`;
+    html += `<div class="st-body"><div class="${hasMore ? 'st-top5' : ''}" id="stList${ci}">`;
+
+    list.forEach((p, i) => {
+      const mine = p.isMine ? ' mine' : '';
+      const teamBadge = p.team ? `<span class="st-team">${esc(p.team)}</span>` : '';
+      html += `<div class="st-row${mine}">
+        <div class="st-rank">${i + 1}</div>
+        <div class="st-name">${esc(p.sn)}${teamBadge}</div>
+        <div class="st-val">${cat.fmt(p)}</div>
+      </div>`;
+    });
+
+    html += '</div>';
+    if (hasMore) {
+      html += `<div class="st-more" onclick="document.getElementById('stList${ci}').classList.toggle('st-top5');this.textContent=this.textContent==='Alle anzeigen'?'Weniger anzeigen':'Alle anzeigen'">Alle anzeigen</div>`;
+    }
+    html += '</div></div>';
+  });
+
+  container.innerHTML = html;
+}
+
 function render() {
   updateIdentityBar();
   renderLeaderboard();
   renderTournament();
+  renderStats();
   renderPayoutsView();
   renderDraft();
   updateFab();
@@ -1890,9 +2063,7 @@ function renderTournament() {
 
 function buildScorecardHeader(name, teamName, headshot) {
   const initials = name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
-  // Use higher-res image for modal (w=200 instead of w=96)
-  const hiResHeadshot = headshot ? headshot.replace('w=96&h=70', 'w=200&h=146') : '';
-  const avatarHtml = hiResHeadshot
+  const avatarHtml = headshot
     ? `<img class="scorecard-avatar" src="${hiResHeadshot}" alt="" onerror="this.outerHTML='<div class=\\'scorecard-avatar-fallback\\'>${initials}</div>'">`
     : `<div class="scorecard-avatar-fallback">${initials}</div>`;
   const teamInfo = teamName ? `<div style="font-size:13px;color:var(--gold);font-weight:400;margin-top:1px">${esc(teamName)}</div>` : '';
