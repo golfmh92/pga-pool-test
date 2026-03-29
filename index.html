@@ -190,6 +190,10 @@ body::before{content:'';position:fixed;inset:0;background:
 .golfer-rd.even{color:#2563EB}
 .golfer-rd.bogey{color:#000}
 .golfer-cut{font-size:10px;color:var(--red);font-weight:600;margin-left:8px}
+.scorecard-header{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.scorecard-avatar{width:48px;height:48px;border-radius:50%;object-fit:cover;flex-shrink:0;background:var(--bg2)}
+.scorecard-avatar-fallback{width:48px;height:48px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:var(--green);color:#fff;font-weight:700;font-size:18px;font-family:var(--font-body)}
+.scorecard-header-info{flex:1;min-width:0}
 .scorecard{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:12px;table-layout:fixed}
 .scorecard th{background:var(--bg2);padding:6px 4px;text-align:center;font-weight:600;color:var(--text2);font-size:10px}
 .scorecard td{padding:6px 4px;text-align:center;border-bottom:1px solid var(--border)}
@@ -521,7 +525,7 @@ body::before{content:'';position:fixed;inset:0;background:
 <div class="modal-overlay" id="modalScorecard">
   <div class="modal">
     <div class="modal-handle"></div>
-    <h2 id="scorecardTitle">Scorecard</h2>
+    <div id="scorecardTitle"></div>
     <div id="scorecardContent"></div>
     <div class="actions">
       <button class="btn btn-secondary btn-block" onclick="closeModal('modalScorecard')">Schließen</button>
@@ -829,14 +833,105 @@ function renderPayoutsView() {
     section.innerHTML = '<div class="empty"><div class="empty-icon">&#128176;</div><h3>Noch keine Payouts</h3><p>Mindestens 2 Mitspieler nötig</p></div>';
     return;
   }
-  const html = buildPayoutHtml(pot, ranking);
-  section.innerHTML = `
-    <div class="stats-row">
-      <div class="stat-card"><div class="stat-val">${S.participants.length}</div><div class="stat-label">Mitspieler</div></div>
-      <div class="stat-card"><div class="stat-val">${fmtMoney(pot)}</div><div class="stat-label">Pot</div></div>
-      <div class="stat-card"><div class="stat-val">${fmtMoney(pot*.6)}</div><div class="stat-label">1. Platz</div></div>
-    </div>
-    ${html}`;
+
+  // If user selected identity → show personal summary
+  if (S.myName) {
+    const personalHtml = buildPersonalPayoutHtml(pot, ranking);
+    section.innerHTML = personalHtml;
+  } else {
+    const html = buildPayoutHtml(pot, ranking);
+    section.innerHTML = `
+      <div class="stats-row">
+        <div class="stat-card"><div class="stat-val">${S.participants.length}</div><div class="stat-label">Mitspieler</div></div>
+        <div class="stat-card"><div class="stat-val">${fmtMoney(pot)}</div><div class="stat-label">Pot</div></div>
+        <div class="stat-card"><div class="stat-val">${fmtMoney(pot*.6)}</div><div class="stat-label">1. Platz</div></div>
+      </div>
+      ${html}`;
+  }
+}
+
+function buildPersonalPayoutHtml(pot, ranking) {
+  const p1 = Math.round(pot * 0.6);
+  const p2 = Math.round(pot * 0.3);
+  const p3 = pot - p1 - p2;
+
+  const activeRanking = ranking.filter(x => !x.isEliminated);
+  const myRanking = ranking.find(t => t.name === S.myName);
+  const myActiveIdx = myRanking ? activeRanking.indexOf(myRanking) : -1;
+
+  // My payout
+  let myPayout = 0;
+  if (myActiveIdx === 0) myPayout = p1;
+  else if (myActiveIdx === 1) myPayout = p2;
+  else if (myActiveIdx === 2) myPayout = p3;
+  const myNet = myPayout - ENTRY_FEE;
+
+  // Compute transfers
+  const balances = ranking.map(t => {
+    const idx = activeRanking.indexOf(t);
+    let payout = 0;
+    if (idx === 0) payout = p1;
+    else if (idx === 1) payout = p2;
+    else if (idx === 2) payout = p3;
+    return { name: t.name, net: payout - ENTRY_FEE };
+  });
+  const creditors = balances.filter(b => b.net > 0).map(b => ({ ...b, remaining: b.net }));
+  const debtors = balances.filter(b => b.net < 0).map(b => ({ ...b, remaining: -b.net }));
+  const transfers = [];
+  let ci = 0, di = 0;
+  while (ci < creditors.length && di < debtors.length) {
+    const amount = Math.min(creditors[ci].remaining, debtors[di].remaining);
+    if (amount > 0) {
+      transfers.push({ from: debtors[di].name, to: creditors[ci].name, amount });
+      creditors[ci].remaining -= amount;
+      debtors[di].remaining -= amount;
+    }
+    if (creditors[ci].remaining === 0) ci++;
+    if (debtors[di].remaining === 0) di++;
+  }
+
+  // Filter to my transfers only
+  const myTransfers = transfers.filter(t => t.from === S.myName || t.to === S.myName);
+
+  // Position info
+  const posText = myRanking
+    ? (myRanking.isEliminated ? 'Eliminiert' : `Platz ${myActiveIdx + 1} von ${activeRanking.length}`)
+    : 'Nicht dabei';
+
+  // Net color
+  const netCls = myNet > 0 ? 'positive' : myNet < 0 ? 'negative' : '';
+  const netColor = myNet > 0 ? 'var(--green)' : myNet < 0 ? 'var(--red)' : 'var(--text)';
+
+  let html = '';
+
+  // Personal summary card
+  html += `<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;text-align:center;margin-bottom:16px;box-shadow:0 1px 3px rgba(0,0,0,.04)">
+    <div style="font-size:13px;color:var(--text2);text-transform:uppercase;letter-spacing:.5px">${esc(S.myName)}</div>
+    <div style="font-family:var(--font-display);font-size:40px;font-weight:700;color:${netColor};margin:8px 0">${myNet >= 0 ? '+' : ''}${fmtMoney(myNet)}</div>
+    <div style="font-size:12px;color:var(--text3)">${posText}</div>
+  </div>`;
+
+  // My transfers
+  if (myTransfers.length > 0) {
+    html += `<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.04)">`;
+    html += '<div class="transfer-section">';
+    html += `<div class="transfer-section-title">${myNet >= 0 ? 'Du bekommst' : 'Du zahlst'}</div>`;
+    myTransfers.forEach(t => {
+      const otherName = t.from === S.myName ? t.to : t.from;
+      const isPayingTo = t.from === S.myName;
+      html += `<div class="transfer-card mine">
+        <span class="transfer-from">${isPayingTo ? 'Du' : esc(otherName)}</span>
+        <span class="transfer-arrow"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14m-7-7 7 7-7 7"/></svg></span>
+        <span class="transfer-to">${isPayingTo ? esc(otherName) : 'Du'}</span>
+        <span class="transfer-amount">${fmtMoney(t.amount)}</span>
+      </div>`;
+    });
+    html += '</div></div>';
+  } else if (myNet === 0) {
+    html += `<div style="text-align:center;padding:16px;color:var(--text3);font-size:13px">Keine Zahlungen nötig</div>`;
+  }
+
+  return html;
 }
 
 function buildPayoutHtml(pot, ranking) {
@@ -924,7 +1019,7 @@ function toggleFavorite(name, ev) {
   if (S.favorites.has(name)) S.favorites.delete(name);
   else S.favorites.add(name);
   localStorage.setItem('pga_test_favs', JSON.stringify([...S.favorites]));
-  renderLeaderboard();
+  renderTournament();
 }
 
 function renderLeaderboard() {
@@ -1084,9 +1179,6 @@ function renderLeaderboard() {
       expandHtml += '</div>';
     }
 
-    const starSvg = isFav
-      ? `<svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 22 12 18.27 5.82 22 7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>`
-      : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 22 12 18.27 5.82 22 7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>`;
     const bonusHtml = t.bonus > 0 ? `<div class="lb-bonus">Bonus: -${t.bonus}</div>` : '';
     const elimBadge = t.isEliminated ? '<span class="eliminated-badge">ELIMINATED</span>' : '';
     const chevron = teamGolfers.length > 0 ? `<div class="lb-toggle"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg></div>` : '';
@@ -1100,26 +1192,12 @@ function renderLeaderboard() {
         <div class="lb-total ${totalCls}">${fmtScore(displayScore)}</div>
         ${rd === 0 ? bonusHtml : ''}
       </div>
-      <button class="fav-btn${isFav ? ' active' : ''}" onclick="toggleFavorite('${esc(t.name)}', event)">${starSvg}</button>
       ${chevron}
       <div class="lb-expand">${expandHtml}</div>
     </div>`;
   }
 
-  // Split into favorites and rest
-  const favNames = S.favorites || new Set();
-  const favEntries = filteredRanking.filter(t => favNames.has(t.name));
-  const restEntries = filteredRanking.filter(t => !favNames.has(t.name));
-
-  let html = '';
-  if (favEntries.length > 0) {
-    html += '<div class="fav-divider">Favoriten</div>';
-    html += favEntries.map(renderLbEntry).join('');
-    html += '<div class="fav-divider">Alle Spieler</div>';
-  }
-  html += restEntries.map(renderLbEntry).join('');
-
-  document.getElementById('leaderboardList').innerHTML = html;
+  document.getElementById('leaderboardList').innerHTML = filteredRanking.map(renderLbEntry).join('');
 
   // Restore open state after re-render
   openEntries.forEach(id => {
@@ -1503,17 +1581,29 @@ function renderTournament() {
     return a.data.toPar - b.data.toPar;
   });
 
+  // Compute ranks
   let rank = 0, prevScore = null;
-  list.innerHTML = players.map((p, i) => {
+  players.forEach((p, i) => {
+    const isOut = p.data.status === 'wd' || p.data.status === 'cut';
+    if (!isOut && p.data.toPar !== prevScore) { rank = i + 1; prevScore = p.data.toPar; }
+    p._rank = isOut ? 0 : rank;
+  });
+
+  function renderTournamentEntry(p) {
     const isWD = p.data.status === 'wd';
     const isCut = p.data.status === 'cut';
     const isOut = isWD || isCut;
-    if (!isOut && p.data.toPar !== prevScore) { rank = i + 1; prevScore = p.data.toPar; }
+    const isFav = S.favorites && S.favorites.has(p.name);
+    const starSvg = isFav
+      ? `<svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 22 12 18.27 5.82 22 7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>`
+      : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 22 12 18.27 5.82 22 7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>`;
+    const favBtn = `<button class="fav-btn${isFav ? ' active' : ''}" onclick="toggleFavorite('${esc(p.name)}', event)">${starSvg}</button>`;
+
+    const nameParts = p.name.trim().split(' ');
+    const shortName = nameParts.length > 1 ? nameParts.slice(1).join(' ') + ' ' + nameParts[0][0] + '.' : p.name;
+    const teamBadge = p.team ? `<div style="font-size:10px;color:var(--gold);margin-top:1px">${esc(p.team)}</div>` : '';
 
     if (isOut) {
-      const teamBadge = p.team ? `<div style="font-size:10px;color:var(--gold);margin-top:1px">${esc(p.team)}</div>` : '';
-      const nameParts = p.name.trim().split(' ');
-      const shortName = nameParts.length > 1 ? nameParts.slice(1).join(' ') + ' ' + nameParts[0][0] + '.' : p.name;
       const badge = isWD ? 'WD' : 'MC';
       const rounds = [1,2,3,4].map(r => {
         const sc = p.data['r' + r];
@@ -1521,7 +1611,8 @@ function renderTournament() {
         const rel = sc - PAR;
         return `<span style="color:${rel < 0 ? '#E63946' : rel === 0 ? '#2563EB' : '#000'};font-weight:500">${sc}</span>`;
       });
-      return `<div class="lb-entry" style="opacity:0.4;cursor:${isCut ? 'pointer' : 'default'}" ${isCut ? `onclick="showScorecardByName('${esc(p.name)}')"` : ''}>
+      return `<div class="lb-entry" style="opacity:0.4;cursor:${isCut ? 'pointer' : 'default'};flex-wrap:nowrap" ${isCut ? `onclick="showScorecardByName('${esc(p.name)}')"` : ''}>
+        ${favBtn}
         <div class="lb-rank" style="width:28px;flex-shrink:0">\u2014</div>
         <div style="flex:1;min-width:0;overflow:hidden">
           <div style="font-weight:600;font-size:12px">${esc(shortName)}</div>
@@ -1538,8 +1629,6 @@ function renderTournament() {
     }
 
     const scoreCls = p.data.toPar < 0 ? 'under' : p.data.toPar > 0 ? 'over' : 'even';
-
-    // Round scores display
     const rounds = [1,2,3,4].map(r => {
       if (p.data.currentRound === r && !p.data.finished) {
         const rtp = p.data['r' + r + '_toPar'] !== undefined ? p.data['r' + r + '_toPar'] : p.data.toPar;
@@ -1552,16 +1641,9 @@ function renderTournament() {
       return `<span style="color:${rel < 0 ? '#E63946' : rel === 0 ? '#2563EB' : '#000'};font-weight:500">${sc}</span>`;
     });
 
-    const teamBadge = p.team ? `<div style="font-size:10px;color:var(--gold);margin-top:1px">${esc(p.team)}</div>` : '';
-
-    // Format name as "Nachname V."
-    const nameParts = p.name.trim().split(' ');
-    const shortName = nameParts.length > 1
-      ? nameParts.slice(1).join(' ') + ' ' + nameParts[0][0] + '.'
-      : p.name;
-
     return `<div class="lb-entry" style="cursor:pointer;flex-wrap:nowrap" onclick="showScorecardByName('${esc(p.name)}')">
-      <div class="lb-rank" style="width:28px;flex-shrink:0">${rank}</div>
+      ${favBtn}
+      <div class="lb-rank" style="width:28px;flex-shrink:0">${p._rank}</div>
       <div style="flex:1;min-width:0;overflow:hidden">
         <div style="font-weight:600;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(shortName)}</div>
         ${teamBadge}
@@ -1573,7 +1655,31 @@ function renderTournament() {
         <div class="lb-total ${scoreCls}" style="font-size:20px">${fmtScore(p.data.toPar)}</div>
       </div>
     </div>`;
-  }).join('');
+  }
+
+  // Split into favorites and rest
+  const favNames = S.favorites || new Set();
+  const favPlayers = players.filter(p => favNames.has(p.name));
+  const restPlayers = players.filter(p => !favNames.has(p.name));
+
+  let html = '';
+  if (favPlayers.length > 0) {
+    html += '<div class="fav-divider">Favoriten</div>';
+    html += favPlayers.map(renderTournamentEntry).join('');
+    html += '<div class="fav-divider">Alle Spieler</div>';
+  }
+  html += restPlayers.map(renderTournamentEntry).join('');
+
+  list.innerHTML = html;
+}
+
+function buildScorecardHeader(name, teamName, headshot) {
+  const initials = name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+  const avatarHtml = headshot
+    ? `<img class="scorecard-avatar" src="${headshot}" alt="" onerror="this.outerHTML='<div class=\\'scorecard-avatar-fallback\\'>${initials}</div>'">`
+    : `<div class="scorecard-avatar-fallback">${initials}</div>`;
+  const teamInfo = teamName ? `<div style="font-size:13px;color:var(--gold);font-weight:400;margin-top:1px">${esc(teamName)}</div>` : '';
+  return `<div class="scorecard-header">${avatarHtml}<div class="scorecard-header-info"><div style="font-family:var(--font-display);font-size:20px;font-weight:600">${esc(name)}</div>${teamInfo}</div></div>`;
 }
 
 function showScorecardByName(playerName) {
@@ -1582,12 +1688,10 @@ function showScorecardByName(playerName) {
     showToast('Keine Loch-Daten verfügbar');
     return;
   }
-  // Find team
   const draftedGolfer = S.golfers.find(g => normalizeName(g.name) === normalizeName(playerName));
   const team = draftedGolfer ? S.participants.find(p => p.id === draftedGolfer.participant_id) : null;
-  const teamInfo = team ? ` <span style="font-size:13px;color:var(--gold);font-weight:400">${esc(team.name)}</span>` : '';
 
-  document.getElementById('scorecardTitle').innerHTML = esc(playerName) + teamInfo;
+  document.getElementById('scorecardTitle').innerHTML = buildScorecardHeader(playerName, team?.name, data.headshot);
   renderScorecardContent(data);
   openModal('modalScorecard');
 }
@@ -1598,11 +1702,9 @@ function showScorecard(golferId) {
     showToast('Keine Loch-Daten verfügbar');
     return;
   }
-  // Find team
   const team = S.participants.find(p => p.id === golfer.participant_id);
-  const teamInfo = team ? ` <span style="font-size:13px;color:var(--gold);font-weight:400">${esc(team.name)}</span>` : '';
 
-  document.getElementById('scorecardTitle').innerHTML = esc(golfer.name) + teamInfo;
+  document.getElementById('scorecardTitle').innerHTML = buildScorecardHeader(golfer.name, team?.name, golfer._live?.headshot);
   renderScorecardContent(golfer._live);
   openModal('modalScorecard');
 }
@@ -1978,7 +2080,8 @@ async function fetchLiveScores() {
         status: isWD ? 'wd' : (isCut ? 'cut' : statusType),
         madeCut: !isWD && !isCut,
         currentRound,
-        finished: finished || isWD
+        finished: finished || isWD,
+        headshot: athlete.headshot?.href || ''
       };
     }
 
