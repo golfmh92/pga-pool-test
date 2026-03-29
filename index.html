@@ -1137,15 +1137,18 @@ function renderAdmin() {
 
     for (const g of golfers) {
       const gs = golferStatus(g);
-      const btnStyle = (active) => `padding:4px 10px;border-radius:6px;font-size:11px;font-weight:600;border:1px solid var(--border);${active ? 'background:var(--green);color:#fff' : 'background:var(--bg);color:var(--text2)'}`;
-      const btnStyleRed = (active) => `padding:4px 10px;border-radius:6px;font-size:11px;font-weight:600;border:1px solid var(--border);${active ? 'background:var(--red);color:#fff' : 'background:var(--bg);color:var(--text2)'}`;
+      const isManualWd = gs === 'wd' && !g.made_cut;
+      const isManualDq = gs === 'dq';
+      const isAktiv = !isManualWd && !isManualDq;
+      const btn = (active, color) => `padding:4px 10px;border-radius:6px;font-size:11px;font-weight:600;border:1px solid var(--border);${active ? `background:var(--${color});color:#fff` : 'background:var(--bg);color:var(--text2)'}`;
+      const mcLabel = gs === 'cut' ? ' <span style="font-size:10px;color:var(--red)">(MC)</span>' : '';
 
       html += `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:4px">
-        <div style="font-size:13px;font-weight:500">${esc(g.name)}</div>
+        <div style="font-size:13px;font-weight:500">${esc(g.name)}${mcLabel}</div>
         <div style="display:flex;gap:4px">
-          <button style="${btnStyle(gs === 'active')}" onclick="setGolferStatus('${g.id}','active')">Aktiv</button>
-          <button style="${btnStyleRed(gs === 'wd')}" onclick="setGolferStatus('${g.id}','wd')">WD</button>
-          <button style="${btnStyleRed(gs === 'dq')}" onclick="setGolferStatus('${g.id}','dq')">DQ</button>
+          <button style="${btn(isAktiv, 'green')}" onclick="setGolferStatus('${g.id}','active')">Aktiv</button>
+          <button style="${btn(isManualWd, 'red')}" onclick="setGolferStatus('${g.id}','wd')">WD</button>
+          <button style="${btn(isManualDq, 'red')}" onclick="setGolferStatus('${g.id}','dq')">DQ</button>
         </div>
       </div>`;
     }
