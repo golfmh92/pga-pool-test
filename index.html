@@ -619,6 +619,7 @@ body::before{content:'';position:fixed;inset:0;background:
 const PAR = 71; // TPC San Antonio (Oaks Course)
 const ENTRY_FEE = 20;
 const ESPN_GOLF_URL = 'https://site.api.espn.com/apis/site/v2/sports/golf/pga/scoreboard';
+const TOURNAMENT_START = new Date('2026-04-03T00:00:00'); // Valero Texas Open, Do 3. April
 const LIVE_REFRESH_MS = 30000; // 30 seconds when live
 const IDLE_REFRESH_MS = 600000; // 10 minutes when not playing
 
@@ -995,6 +996,10 @@ function renderStats() {
   const container = document.getElementById('statsContent');
   if (!container) return;
 
+  if (new Date() < TOURNAMENT_START) {
+    container.innerHTML = '<div class="tk-empty"><div class="tk-empty-icon">&#128202;</div><h3>Turnier beginnt am Do, 3. April</h3><p>Stats sind ab Donnerstag verfügbar.</p></div>';
+    return;
+  }
   const players = computeAllStats();
   if (players.length === 0) {
     container.innerHTML = '<div class="tk-empty"><div class="tk-empty-icon">&#128202;</div><h3>Keine Stats</h3><p>Stats werden berechnet sobald Live-Daten vorhanden sind</p></div>';
@@ -1983,6 +1988,10 @@ async function removeBonus(id) {
 function renderTournament() {
   const list = document.getElementById('tournamentList');
   if (!list) return;
+  if (new Date() < TOURNAMENT_START) {
+    list.innerHTML = '<div class="empty"><div class="empty-icon">&#9971;</div><h3>Turnier beginnt am Do, 3. April</h3><p>Ab Donnerstag werden hier die Live-Scores der Valero Texas Open angezeigt.</p></div>';
+    return;
+  }
   const entries = Object.entries(S.liveScores);
   if (entries.length === 0) {
     list.innerHTML = '<div class="empty"><div class="empty-icon">&#9971;</div><h3>Keine Live-Daten</h3><p>Das Turnier hat noch nicht begonnen oder die Daten werden geladen.</p></div>';
@@ -2426,6 +2435,7 @@ function matchGolferToLive(golferName) {
 }
 
 async function fetchLiveScores() {
+  if (new Date() < TOURNAMENT_START) { updateLiveBadge(false); return; }
   try {
     const resp = await fetch(ESPN_GOLF_URL);
     if (!resp.ok) return;
