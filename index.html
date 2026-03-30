@@ -1668,8 +1668,10 @@ function renderLeaderboard() {
                 ${g._live.thru && g._live.thru !== 'F' ? `<div style="color:var(--text3);font-size:9px">${g._live.thru}</div>` : ''}
               </div>`
             : '<div style="width:40px"></div>';
+          const golferBonus = getGolferBonus(g.id);
+          const golferBonusHtml = golferBonus > 0 ? `<span style="font-size:10px;color:var(--gold2);margin-left:4px">★-${golferBonus}</span>` : '';
           return `<div class="golfer-row ${isCut ? 'cut' : ''}" style="cursor:pointer" onclick="event.stopPropagation();showScorecard('${g.id}')">
-            <div class="golfer-name">${esc(shortName(g.name))}</div>
+            <div class="golfer-name">${esc(shortName(g.name))}${golferBonusHtml}</div>
             <div class="golfer-rounds">${rounds}</div>
             ${liveHtml}
             ${isCut ? `<div class="golfer-cut">${gStatus === 'dq' ? 'DQ' : gStatus === 'wd' ? 'WD' : 'CUT'}</div>` : ''}
