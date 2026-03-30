@@ -431,10 +431,13 @@ function renderDraftBoard() {
     const ordered = [...S.participants].sort((a,b) => (a.draft_position||99)-(b.draft_position||99));
     const nextIdx = isReverse ? (n-1-pickInRound) : pickInRound;
     const next = ordered[nextIdx];
-    banner.innerHTML = next ? `<div class="next-pick">
-      <div><div class="next-pick-label">Nächster Pick</div><div class="next-pick-name">${esc(next.name)}</div></div>
-      <div style="font-size:12px;color:var(--text3)">Runde ${round} · Pick ${totalPicks+1}</div>
-    </div>` : '';
+    banner.innerHTML = `<div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap">
+      ${next ? `<div class="next-pick">
+        <div><div class="next-pick-label">Nächster Pick</div><div class="next-pick-name">${esc(next.name)}</div></div>
+        <div style="font-size:12px;color:var(--text3)">Runde ${round} · Pick ${totalPicks+1}</div>
+      </div>` : ''}
+      ${S.isAdmin && totalPicks === 0 ? `<button class="btn btn-light" onclick="randomizeDraftOrder()" style="font-size:13px">🎲 Reihenfolge auslosen</button>` : ''}
+    </div>`;
 
     if (S.isAdmin) {
       const sel = document.getElementById('teamSelect');
@@ -680,7 +683,6 @@ async function updateDraftPosition(id, value) {
 }
 
 async function randomizeDraftOrder() {
-  if (!confirm('Draft Reihenfolge zufällig auslosen?')) return;
   const ids = S.participants.map(p => p.id);
   for (let i = ids.length-1; i > 0; i--) {
     const j = Math.floor(Math.random()*(i+1));
@@ -691,6 +693,7 @@ async function randomizeDraftOrder() {
   }
   await loadAll();
   renderMitspieler();
+  renderDraftBoard();
   showToast('Reihenfolge ausgelost 🎲');
 }
 
