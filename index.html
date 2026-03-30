@@ -759,7 +759,11 @@ function calcTeamRoundScore(participantId, round) {
     if (gs === 'wd') continue; // WD: skip all rounds
     if (round >= 3 && (gs === 'cut' || !g.made_cut)) continue; // CUT: skip R3+R4
     const sc = getGolferScore(g.id, round);
-    if (sc !== null) roundScores.push(sc - PAR);
+    if (sc !== null) {
+      // Bonus applies only in R1: subtract bonus shots from golfer score before best-N selection
+      const bonus = round === 1 ? getGolferBonus(g.id) : 0;
+      roundScores.push(sc - PAR - bonus);
+    }
   }
   if (roundScores.length === 0) return null;
   roundScores.sort((a, b) => a - b);
@@ -774,11 +778,6 @@ function calcTeamTotal(participantId) {
     const rs = calcTeamRoundScore(participantId, r);
     if (rs !== null) { total += rs; hasAny = true; }
   }
-  // Subtract bonuses
-  const bonusShots = S.bonuses
-    .filter(b => b.participant_id === participantId)
-    .reduce((sum, b) => sum + b.shots, 0);
-  total -= bonusShots;
   return hasAny ? total : null;
 }
 
@@ -845,17 +844,16 @@ function getRanking() {
     const eliminated = checkEliminated(p.id);
     const bonus = getTeamBonusTotal(p.id);
     const rounds = [1,2,3,4].map(r => calcTeamRoundScore(p.id, r));
-    // Total = sum of round scores (consistent with individual day scores)
+    // Total = sum of round scores (bonus already baked into R1 via calcTeamRoundScore)
     let total = null;
     let hasAny = false;
     for (const rs of rounds) {
       if (rs !== null) { total = (total || 0) + rs; hasAny = true; }
     }
-    if (hasAny) total -= bonus;
-    // If no round scores yet, fall back to live toPar ranking
+    // If no round scores yet, fall back to live toPar ranking (bonus not yet applicable)
     if (!hasAny) {
       const totalLive = calcTeamTotalLive(p.id);
-      if (totalLive !== null) { total = totalLive - bonus; hasAny = true; }
+      if (totalLive !== null) { total = totalLive; hasAny = true; }
     }
     const isLive = hasAny;
     return { ...p, total: hasAny ? total : null, bonus, rounds, isEliminated: eliminated, isLive };
@@ -1626,7 +1624,7 @@ function renderLeaderboard() {
         const count = r <= 2 ? 4 : 3;
         const withScores = teamGolfers
           .filter(g => golferStatus(g) !== 'wd' && (r < 3 || g.made_cut))
-          .map(g => ({ id: g.id, score: getGolferScore(g.id, r) }))
+          .map(g => { const sc = getGolferScore(g.id, r); const bonus = r === 1 ? getGolferBonus(g.id) : 0; return { id: g.id, score: sc !== null ? sc - bonus : null }; })
           .filter(x => x.score !== null)
           .sort((a, b) => a.score - b.score);
         withScores.slice(0, count).forEach(x => { countingMap[x.id + '_' + r] = true; });
@@ -1649,9 +1647,11 @@ function renderLeaderboard() {
         expandHtml += '<div class="round-headers" style="padding-left:0"><span>R1</span><span>R2</span><span>R3</span><span>R4</span><span style="width:40px">Live</span></div>';
         expandHtml += sortedTeamGolfers.map(g => {
           const gStatus = golferStatus(g); const isCut = gStatus !== 'active';
+          const golferBonus = getGolferBonus(g.id);
           const rounds = [1,2,3,4].map(r => {
             const sc = getGolferScore(g.id, r);
-            const rel = sc !== null ? sc - PAR : null;
+            const bonus = r === 1 ? golferBonus : 0;
+            const rel = sc !== null ? sc - PAR - bonus : null;
             const sCls = scoreClass(rel);
             const counting = countingMap[g.id + '_' + r];
             // Mid-round: show toPar + thru instead of score
@@ -1659,7 +1659,8 @@ function renderLeaderboard() {
               const rtp = g._live['r' + r + '_toPar'] !== undefined ? g._live['r' + r + '_toPar'] : g._live.toPar;
               return `<div class="golfer-rd" style="font-size:11px;color:var(--green);font-weight:600;line-height:1.1">${fmtScore(rtp)}<div style="font-size:8px;color:var(--text3);font-weight:400">${g._live.thru}</div></div>`;
             }
-            return `<div class="golfer-rd ${sCls}" style="${counting ? 'background:rgba(0,103,71,.08);font-weight:700' : ''}">${sc !== null ? sc : '—'}</div>`;
+            const bonusBadge = r === 1 && bonus > 0 ? `<span style="font-size:8px;color:var(--gold2);display:block;line-height:1">★-${bonus}</span>` : '';
+            return `<div class="golfer-rd ${sCls}" style="${counting ? 'background:rgba(0,103,71,.08);font-weight:700' : ''}">${sc !== null ? sc : '—'}${bonusBadge}</div>`;
           }).join('');
           // Live toPar + thru column
           const liveHtml = g._live
@@ -1668,10 +1669,8 @@ function renderLeaderboard() {
                 ${g._live.thru && g._live.thru !== 'F' ? `<div style="color:var(--text3);font-size:9px">${g._live.thru}</div>` : ''}
               </div>`
             : '<div style="width:40px"></div>';
-          const golferBonus = getGolferBonus(g.id);
-          const golferBonusHtml = golferBonus > 0 ? `<span style="font-size:10px;color:var(--gold2);margin-left:4px">★-${golferBonus}</span>` : '';
           return `<div class="golfer-row ${isCut ? 'cut' : ''}" style="cursor:pointer" onclick="event.stopPropagation();showScorecard('${g.id}')">
-            <div class="golfer-name">${esc(shortName(g.name))}${golferBonusHtml}</div>
+            <div class="golfer-name">${esc(shortName(g.name))}</div>
             <div class="golfer-rounds">${rounds}</div>
             ${liveHtml}
             ${isCut ? `<div class="golfer-cut">${gStatus === 'dq' ? 'DQ' : gStatus === 'wd' ? 'WD' : 'CUT'}</div>` : ''}
@@ -1690,7 +1689,7 @@ function renderLeaderboard() {
           const liveInfo = (!hasRoundScore && g._live && !isCut)
             ? `<span style="font-size:12px;font-weight:600;color:var(--green)">${fmtScore(g._live.toPar)}</span>${thru ? `<span style="font-size:10px;color:var(--text3);margin-left:4px">${thru}</span>` : ''}`
             : '';
-          const golferBonus = getGolferBonus(g.id);
+          const golferBonus = rd === 1 ? getGolferBonus(g.id) : 0;
           const golferBonusHtml = golferBonus > 0 ? `<span style="font-size:10px;color:var(--gold2);margin-left:4px">★-${golferBonus}</span>` : '';
           return `<div class="golfer-row ${isCut ? 'cut' : ''}" style="cursor:pointer" onclick="event.stopPropagation();showScorecard('${g.id}')">
             <div class="golfer-name" style="${counting ? 'color:var(--green);font-weight:600' : ''}">${esc(shortName(g.name))}${golferBonusHtml}</div>
