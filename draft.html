@@ -121,6 +121,8 @@ select.input{cursor:pointer}
 .pick-item{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:8px;margin-bottom:3px;background:var(--bg)}
 .pick-item.latest{background:rgba(230,57,70,.08);border:1px solid rgba(230,57,70,.2)}
 .pick-item:last-child{margin-bottom:0}
+.pick-item .remove-pick{opacity:0;transition:opacity .15s}
+.pick-item:hover .remove-pick{opacity:1}
 .pick-round{width:18px;height:18px;border-radius:50%;background:var(--border);font-size:9px;font-weight:700;color:var(--text3);display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .pick-name{font-size:13px;font-weight:500}
 .pick-empty{font-size:12px;color:var(--text3);padding:6px 8px;font-style:italic}
@@ -462,7 +464,8 @@ function renderDraftBoard() {
       const rows = picks.length > 0
         ? picks.map(g => `<div class="pick-item ${latestPick&&g.id===latestPick.id?'latest':''}">
             <div class="pick-round">${g.draft_round}</div>
-            <div class="pick-name">${esc(g.name)}</div>
+            <div class="pick-name" style="flex:1">${esc(g.name)}</div>
+            ${S.isAdmin ? `<button class="remove-pick" onclick="removePick('${g.id}')" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:14px;line-height:1;padding:2px 4px;border-radius:4px;transition:color .15s" onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--text3)'">✕</button>` : ''}
           </div>`).join('')
         : '<div class="pick-empty">Noch kein Pick</div>';
       return `<div class="team-col"
@@ -614,6 +617,13 @@ async function confirmPick() {
   await loadAll();
   renderDraftBoard();
   showToast(name + ' gedraftet ✓');
+}
+
+async function removePick(id) {
+  await sb.from('pga_test_golfers').delete().eq('id', id);
+  await loadAll();
+  renderDraftBoard();
+  showToast('Pick entfernt');
 }
 
 // ── MITSPIELER ────────────────────────────────────────
