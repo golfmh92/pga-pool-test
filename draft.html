@@ -334,10 +334,17 @@ function showPage(id) {
   document.getElementById('nav-' + id).classList.add('active');
 
   const mainArea = document.getElementById('mainArea');
+  const draftWrapper = document.getElementById('draftContentWrapper');
+  const fieldPanel = document.getElementById('fieldPanelEl');
+
   if (id === 'draft') {
     mainArea.classList.add('draft-layout');
+    if (draftWrapper) draftWrapper.style.display = '';
+    if (fieldPanel) fieldPanel.style.display = '';
   } else {
     mainArea.classList.remove('draft-layout');
+    if (draftWrapper) draftWrapper.style.display = 'none';
+    if (fieldPanel) fieldPanel.style.display = 'none';
   }
 
   renderPage(id);
@@ -363,7 +370,7 @@ function renderDraftBoard() {
   if (!draftContent) {
     // Restructure: move page-draft content into a scrollable wrapper, add field panel
     const pageDraft = document.getElementById('page-draft');
-    pageDraft.style.display = 'contents'; // let it not interfere with flex layout
+    pageDraft.style.display = ''; // reset any inline style
 
     draftContent = document.createElement('div');
     draftContent.id = 'draftContentWrapper';
