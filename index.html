@@ -1644,7 +1644,7 @@ function renderLeaderboard() {
 
       expandHtml = '<div class="lb-expand-inner">';
       if (rd === 0) {
-        expandHtml += '<div class="round-headers" style="padding:0 0 6px"><span>R1</span><span>R2</span><span>R3</span><span>R4</span><span style="width:40px">Gesamt</span></div>';
+        expandHtml += '<div class="round-headers" style="padding:0 0 6px"><span>R1</span><span>R2</span><span>R3</span><span>R4</span><span style="width:40px">Σ</span></div>';
         expandHtml += sortedTeamGolfers.map(g => {
           const gStatus = golferStatus(g); const isCut = gStatus !== 'active';
           const golferBonus = getGolferBonus(g.id);
