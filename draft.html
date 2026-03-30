@@ -817,23 +817,6 @@ function renderBonus() {
     document.getElementById('bonusSearch').value = '';
     populateBonusSelect('');
   }
-}
-
-function populateBonusSelect(q) {
-  const allGolfers = [...S.golfers]
-    .sort((a,b) => a.name.localeCompare(b.name));
-  const filtered = q ? allGolfers.filter(g => g.name.toLowerCase().includes(q.toLowerCase())) : allGolfers;
-  const sel = document.getElementById('bonusGolferSelect');
-  sel.innerHTML = filtered.map(g => {
-    const team = S.participants.find(p => p.id === g.participant_id);
-    return `<option value="${g.id}">${esc(g.name)}${team ? ' · ' + esc(team.name) : ''}</option>`;
-  }).join('');
-}
-
-function filterBonusSelect() {
-  const q = document.getElementById('bonusSearch').value;
-  populateBonusSelect(q);
-}
 
   const list = document.getElementById('bonusList');
   if (S.bonuses.length === 0) {
@@ -854,6 +837,21 @@ function filterBonusSelect() {
         ${S.isAdmin?`<button class="btn btn-sm btn-danger" onclick="removeBonus('${b.id}')">Entfernen</button>`:''}
       </div>`;
     }).join('') + '</div>';
+}
+
+function populateBonusSelect(q) {
+  const allGolfers = [...S.golfers].sort((a,b) => a.name.localeCompare(b.name));
+  const filtered = q ? allGolfers.filter(g => g.name.toLowerCase().includes(q.toLowerCase())) : allGolfers;
+  const sel = document.getElementById('bonusGolferSelect');
+  sel.innerHTML = filtered.map(g => {
+    const team = S.participants.find(p => p.id === g.participant_id);
+    return `<option value="${g.id}">${esc(g.name)}${team ? ' · ' + esc(team.name) : ''}</option>`;
+  }).join('');
+}
+
+function filterBonusSelect() {
+  const q = document.getElementById('bonusSearch').value;
+  populateBonusSelect(q);
 }
 
 async function addBonus() {
