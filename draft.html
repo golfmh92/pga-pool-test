@@ -254,30 +254,15 @@ select.input{cursor:pointer}
       <!-- BONUS -->
       <div class="page" id="page-bonus">
         <div class="page-title">Bonus</div>
-
-        <div class="card" id="bonusAdminCard" style="display:none">
-          <div class="section-title" style="margin-top:0">Bonus vergeben</div>
-          <div class="form-row">
-            <div class="form-group">
-              <label class="label">Spieler</label>
-              <input class="input" type="text" id="bonusSearch" placeholder="Suchen..." oninput="filterBonusSelect()" style="margin-bottom:6px">
-              <select class="input" id="bonusGolferSelect" size="5" style="height:auto"></select>
-            </div>
-            <div class="form-group" style="max-width:240px">
-              <label class="label">Typ</label>
-              <select class="input" id="bonusTypeSelect">
-                <option value="par3_win">Par 3 Contest Gewinner (-2)</option>
-                <option value="hio">Hole-in-One (-1)</option>
-              </select>
-            </div>
-            <div>
-              <label class="label">&nbsp;</label>
-              <button class="btn btn-primary" onclick="addBonus()">+ Bonus vergeben</button>
-            </div>
-          </div>
+        <div class="card" style="padding:12px 16px;margin-bottom:12px">
+          <input class="input" type="text" id="bonusSearch" placeholder="Spieler suchen..." oninput="renderBonus()">
         </div>
-
-        <div id="bonusList"></div>
+        <div class="card" style="padding:0">
+          <table class="table">
+            <thead><tr><th>Spieler</th><th>Team</th><th>Bonus</th></tr></thead>
+            <tbody id="bonusBody"></tbody>
+          </table>
+        </div>
       </div>
 
     </div><!-- /main -->
@@ -812,67 +797,54 @@ async function setStatus(golferId, status) {
 
 // ── BONUS ─────────────────────────────────────────────
 function renderBonus() {
-  document.getElementById('bonusAdminCard').style.display = S.isAdmin ? '' : 'none';
-  if (S.isAdmin) {
-    document.getElementById('bonusSearch').value = '';
-    populateBonusSelect('');
-  }
-
-  const list = document.getElementById('bonusList');
-  if (S.bonuses.length === 0) {
-    list.innerHTML = '<div class="card" style="color:var(--text3);font-size:14px">Noch keine Boni vergeben.</div>';
+  const q = document.getElementById('bonusSearch').value.toLowerCase().trim();
+  const tbody = document.getElementById('bonusBody');
+  let golfers = [...S.golfers].sort((a,b) => a.name.localeCompare(b.name));
+  if (q) golfers = golfers.filter(g => g.name.toLowerCase().includes(q));
+  if (golfers.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="3" style="color:var(--text3);font-style:italic;padding:16px">Noch keine Spieler gedraftet</td></tr>';
     return;
   }
-  list.innerHTML = '<div class="card" style="padding:0"><div style="padding:10px 14px;font-size:11px;font-weight:600;color:var(--text3);letter-spacing:1px;text-transform:uppercase;border-bottom:1px solid var(--border)">Vergebene Boni</div>'
-    + S.bonuses.map(b => {
-      const g = S.golfers.find(x => x.id === b.golfer_id);
-      const team = g ? S.participants.find(p => p.id === g.participant_id) : null;
-      const label = b.bonus_type === 'par3_win' ? 'Par 3 Contest (-2)' : 'Hole-in-One (-1)';
-      return `<div class="bonus-item">
-        <div>
-          <span style="font-weight:600;font-size:14px">${g?esc(g.name):'?'}</span>
-          ${team?`<span style="font-size:12px;color:var(--text3);margin-left:8px">${esc(team.name)}</span>`:''}
-          <span style="font-size:12px;color:var(--text2);margin-left:8px">${label}</span>
-        </div>
-        ${S.isAdmin?`<button class="btn btn-sm btn-danger" onclick="removeBonus('${b.id}')">Entfernen</button>`:''}
-      </div>`;
-    }).join('') + '</div>';
-}
-
-function populateBonusSelect(q) {
-  const allGolfers = [...S.golfers].sort((a,b) => a.name.localeCompare(b.name));
-  const filtered = q ? allGolfers.filter(g => g.name.toLowerCase().includes(q.toLowerCase())) : allGolfers;
-  const sel = document.getElementById('bonusGolferSelect');
-  sel.innerHTML = filtered.map(g => {
+  tbody.innerHTML = golfers.map(g => {
     const team = S.participants.find(p => p.id === g.participant_id);
-    return `<option value="${g.id}">${esc(g.name)}${team ? ' · ' + esc(team.name) : ''}</option>`;
+    const bonus = S.bonuses.find(b => b.golfer_id === g.id);
+    const isPar3 = bonus?.bonus_type === 'par3_win';
+    const isHio = bonus?.bonus_type === 'hio';
+    return `<tr>
+      <td style="font-weight:500">${esc(g.name)}</td>
+      <td style="color:var(--text2)">${team ? esc(team.name) : '—'}</td>
+      <td>
+        ${S.isAdmin ? `
+          <div style="display:flex;gap:6px;align-items:center">
+            <button class="status-btn ${isPar3 ? 'active-green' : 'inactive'}" onclick="toggleBonus('${g.id}','par3_win')">Par 3 (-2)</button>
+            <button class="status-btn ${isHio ? 'active-green' : 'inactive'}" onclick="toggleBonus('${g.id}','hio')">HiO (-1)</button>
+          </div>`
+        : bonus ? `<span style="font-size:12px;font-weight:600;color:#15803d">${isPar3 ? 'Par 3 (-2)' : 'HiO (-1)'}</span>` : ''}
+      </td>
+    </tr>`;
   }).join('');
 }
 
-function filterBonusSelect() {
-  const q = document.getElementById('bonusSearch').value;
-  populateBonusSelect(q);
-}
-
-async function addBonus() {
-  const golferId = document.getElementById('bonusGolferSelect').value;
-  const type = document.getElementById('bonusTypeSelect').value;
-  const shots = type === 'par3_win' ? 2 : 1;
-  const golfer = S.golfers.find(g => g.id === golferId);
-  const pid = golfer?.participant_id || null;
-  const { error } = await sb.from('pga_test_bonuses').insert({ user_id: S.userId, golfer_id: golferId, participant_id: pid, bonus_type: type, shots });
-  if (error) { showToast('Fehler: ' + error.message); return; }
+async function toggleBonus(golferId, type) {
+  const existing = S.bonuses.find(b => b.golfer_id === golferId);
+  if (existing) {
+    if (existing.bonus_type === type) {
+      await sb.from('pga_test_bonuses').delete().eq('id', existing.id);
+      showToast('Bonus entfernt');
+    } else {
+      await sb.from('pga_test_bonuses').update({ bonus_type: type, shots: type === 'par3_win' ? 2 : 1 }).eq('id', existing.id);
+      showToast('Bonus geändert');
+    }
+  } else {
+    const golfer = S.golfers.find(g => g.id === golferId);
+    await sb.from('pga_test_bonuses').insert({ user_id: S.userId, golfer_id: golferId, participant_id: golfer?.participant_id || null, bonus_type: type, shots: type === 'par3_win' ? 2 : 1 });
+    showToast('Bonus vergeben ✓');
+  }
   await loadAll();
   renderBonus();
-  showToast('Bonus vergeben ✓');
 }
 
-async function removeBonus(id) {
-  await sb.from('pga_test_bonuses').delete().eq('id', id);
-  await loadAll();
-  renderBonus();
-  showToast('Bonus entfernt');
-}
+
 
 // ── Admin Auth ────────────────────────────────────────
 function toggleAdmin() {
