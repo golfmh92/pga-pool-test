@@ -404,14 +404,16 @@ body::before{content:'';position:fixed;inset:0;background:
       <div id="tournamentList"></div>
     </div>
 
-    <!-- DRAFT -->
-    <div class="view" id="viewDraft">
-      <div id="draftContent"></div>
-    </div>
-
-    <!-- ADMIN -->
+    <!-- ADMIN (Draft + Spieler-Status + Bonus) -->
     <div class="view" id="viewAdmin">
-      <div id="adminContent"></div>
+      <div class="round-tabs" id="adminTabs" style="margin-bottom:12px">
+        <button class="round-tab active" onclick="setAdminTab('draft')">Draft</button>
+        <button class="round-tab" onclick="setAdminTab('status')">Spieler</button>
+        <button class="round-tab" onclick="setAdminTab('bonus')">Bonus</button>
+      </div>
+      <div id="adminDraftContent"></div>
+      <div id="adminStatusContent" style="display:none"></div>
+      <div id="adminBonusContent" style="display:none"></div>
     </div>
 
     <!-- STATS -->
@@ -475,10 +477,6 @@ body::before{content:'';position:fixed;inset:0;background:
     <button class="tab" data-tab="stats" onclick="switchTab('stats')">
       <svg viewBox="0 0 24 24"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
       <span>Stats</span>
-    </button>
-    <button class="tab hidden" data-tab="draft" id="tabDraft" onclick="switchTab('draft')">
-      <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
-      <span>Draft</span>
     </button>
     <button class="tab hidden" data-tab="admin" id="tabAdmin" onclick="switchTab('admin')">
       <svg viewBox="0 0 24 24"><path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -636,6 +634,7 @@ let S = {
   isAdmin: false,
   userId: null,
   activeTab: 'leaderboard',
+  _adminTab: 'draft',
   lbRound: 0,
   myName: '',
   // Live scoring
@@ -718,7 +717,6 @@ function setAdmin(yes, uid) {
   S.isAdmin = yes;
   S.userId = uid;
   // Admin button removed — login via long-press on title
-  document.getElementById('tabDraft').classList.toggle('hidden', !yes);
   document.getElementById('tabAdmin').classList.toggle('hidden', !yes);
   document.getElementById('fab').classList.toggle('hidden', !yes || !['draft','leaderboard'].includes(S.activeTab));
 }
@@ -811,9 +809,14 @@ function checkEliminated(participantId) {
 }
 
 function getTeamBonusTotal(participantId) {
-  return S.bonuses
-    .filter(b => b.participant_id === participantId)
-    .reduce((sum, b) => sum + b.shots, 0);
+  // Sum bonuses only for golfers that are active (not wd/dq/cut)
+  const teamGolfers = S.golfers.filter(g => g.participant_id === participantId);
+  let total = 0;
+  for (const g of teamGolfers) {
+    if (isGolferOut(g)) continue; // Bonus lost if golfer is out
+    total += getGolferBonus(g.id);
+  }
+  return total;
 }
 
 function calcTeamTotalLive(participantId) {
@@ -1122,7 +1125,7 @@ function closeStPanel() {
 
 /* ===================== Admin Panel ===================== */
 function renderAdmin() {
-  const c = document.getElementById('adminContent');
+  const c = document.getElementById('adminStatusContent');
   if (!c || !S.isAdmin) return;
 
   const adminFilter = (document.getElementById('adminFilter')?.value || '').toLowerCase().trim();
@@ -1185,6 +1188,64 @@ async function setGolferStatus(golferId, status) {
   showToast(`${labels[status]} gesetzt`);
 }
 
+function setAdminTab(tab) {
+  S._adminTab = tab;
+  document.querySelectorAll('#adminTabs .round-tab').forEach((b, i) => {
+    b.classList.toggle('active', ['draft','status','bonus'][i] === tab);
+  });
+  document.getElementById('adminDraftContent').style.display = tab === 'draft' ? '' : 'none';
+  document.getElementById('adminStatusContent').style.display = tab === 'status' ? '' : 'none';
+  document.getElementById('adminBonusContent').style.display = tab === 'bonus' ? '' : 'none';
+}
+
+function renderAdminBonus() {
+  const c = document.getElementById('adminBonusContent');
+  if (!c || !S.isAdmin) return;
+
+  // Golfer select
+  let optHtml = '';
+  for (const p of S.participants) {
+    const golfers = S.golfers.filter(g => g.participant_id === p.id);
+    if (golfers.length === 0) continue;
+    optHtml += `<optgroup label="${esc(p.name)}">`;
+    golfers.forEach(g => { optHtml += `<option value="${g.id}">${esc(g.name)}</option>`; });
+    optHtml += '</optgroup>';
+  }
+
+  let html = `<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:16px">
+    <div style="font-family:var(--font-display);font-size:16px;color:var(--green);margin-bottom:12px">Bonus hinzufügen</div>
+    <select id="selectBonusGolfer" style="width:100%;padding:10px;background:var(--bg);border:1px solid var(--border);border-radius:8px;font-size:14px;margin-bottom:8px">${optHtml}</select>
+    <select id="selectBonusType" style="width:100%;padding:10px;background:var(--bg);border:1px solid var(--border);border-radius:8px;font-size:14px;margin-bottom:12px">
+      <option value="par3_win">Par 3 Contest Gewinner (-2)</option>
+      <option value="hio">Hole-in-One (-1)</option>
+    </select>
+    <button class="btn btn-primary btn-block" onclick="addBonus()">Bonus hinzufügen</button>
+  </div>`;
+
+  // Existing bonuses
+  if (S.bonuses.length > 0) {
+    html += '<div style="font-family:var(--font-display);font-size:16px;color:var(--green);margin-bottom:8px">Vergebene Boni</div>';
+    S.bonuses.forEach(b => {
+      const golfer = S.golfers.find(g => g.id === b.golfer_id);
+      const team = golfer ? S.participants.find(p => p.id === golfer.participant_id) : null;
+      const label = b.bonus_type === 'par3_win' ? 'Par 3 Gewinner (-2)' : 'HIO (-1)';
+      const name = golfer ? esc(golfer.name) : '?';
+      const teamName = team ? ` <span style="color:var(--gold);font-size:11px">${esc(team.name)}</span>` : '';
+      html += `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:4px">
+        <div><span style="font-size:13px;font-weight:500">${name}</span>${teamName}<span style="font-size:11px;color:var(--text3);margin-left:6px">${label}</span></div>
+        <button style="padding:4px 10px;border-radius:6px;font-size:11px;font-weight:600;background:var(--red);color:#fff;border:none" onclick="removeBonus('${b.id}')">×</button>
+      </div>`;
+    });
+  }
+
+  c.innerHTML = html;
+}
+
+// Golfer bonus: sum of shots for a specific golfer
+function getGolferBonus(golferId) {
+  return S.bonuses.filter(b => b.golfer_id === golferId).reduce((sum, b) => sum + b.shots, 0);
+}
+
 function render() {
   updateIdentityBar();
   renderLeaderboard();
@@ -1192,8 +1253,7 @@ function render() {
   _statsCache = [];
   renderStats();
   renderPayoutsView();
-  renderDraft();
-  if (S.isAdmin) renderAdmin();
+  if (S.isAdmin) { renderDraft(); renderAdmin(); renderAdminBonus(); }
   updateFab();
 }
 
@@ -1671,7 +1731,7 @@ function renderLeaderboard() {
 }
 
 function renderDraft() {
-  const c = document.getElementById('draftContent');
+  const c = document.getElementById('adminDraftContent');
   let html = '';
 
   // Admin buttons — always show when admin
@@ -1742,7 +1802,7 @@ function switchTab(tab) {
 function updateFab() {
   const fab = document.getElementById('fab');
   if (!S.isAdmin) { fab.classList.add('hidden'); return; }
-  if (S.activeTab === 'draft') {
+  if (S.activeTab === 'admin' && S._adminTab === 'draft') {
     fab.classList.remove('hidden');
     fab.onclick = () => openDraftPickModal();
   } else {
@@ -1900,7 +1960,6 @@ async function addBonus() {
     bonus_type: type, shots
   });
   if (error) { showToast('Fehler: ' + error.message); return; }
-  closeModal('modalBonus');
   await loadAll();
   render();
   showToast('Bonus für ' + (golfer ? golfer.name : '') + ' hinzugefügt');
