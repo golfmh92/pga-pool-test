@@ -1688,8 +1688,10 @@ function renderLeaderboard() {
           const liveInfo = (!hasRoundScore && g._live && !isCut)
             ? `<span style="font-size:12px;font-weight:600;color:var(--green)">${fmtScore(g._live.toPar)}</span>${thru ? `<span style="font-size:10px;color:var(--text3);margin-left:4px">${thru}</span>` : ''}`
             : '';
+          const golferBonus = getGolferBonus(g.id);
+          const golferBonusHtml = golferBonus > 0 ? `<span style="font-size:10px;color:var(--gold2);margin-left:4px">★-${golferBonus}</span>` : '';
           return `<div class="golfer-row ${isCut ? 'cut' : ''}" style="cursor:pointer" onclick="event.stopPropagation();showScorecard('${g.id}')">
-            <div class="golfer-name" style="${counting ? 'color:var(--green);font-weight:600' : ''}">${esc(shortName(g.name))}</div>
+            <div class="golfer-name" style="${counting ? 'color:var(--green);font-weight:600' : ''}">${esc(shortName(g.name))}${golferBonusHtml}</div>
             <div style="display:flex;align-items:center;gap:6px">
               ${thru && hasRoundScore ? `<span style="font-size:10px;color:var(--text3)">${thru}</span>` : ''}
               ${hasRoundScore ? `<div class="golfer-rd ${sCls}" style="${counting ? 'background:rgba(0,103,71,.08);font-weight:700' : ''}">${fmtScore(rel)}</div>` : ''}
@@ -1961,6 +1963,7 @@ async function addBonus() {
   });
   if (error) { showToast('Fehler: ' + error.message); return; }
   await loadAll();
+  applyLiveScores();
   render();
   showToast('Bonus für ' + (golfer ? golfer.name : '') + ' hinzugefügt');
 }
@@ -1968,6 +1971,7 @@ async function addBonus() {
 async function removeBonus(id) {
   await sb.from('pga_test_bonuses').delete().eq('id', id);
   await loadAll();
+  applyLiveScores();
   render();
   showToast('Bonus entfernt');
 }
