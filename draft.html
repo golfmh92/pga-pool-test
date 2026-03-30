@@ -260,7 +260,8 @@ select.input{cursor:pointer}
           <div class="form-row">
             <div class="form-group">
               <label class="label">Spieler</label>
-              <select class="input" id="bonusGolferSelect"></select>
+              <input class="input" type="text" id="bonusSearch" placeholder="Suchen..." oninput="filterBonusSelect()" style="margin-bottom:6px">
+              <select class="input" id="bonusGolferSelect" size="5" style="height:auto"></select>
             </div>
             <div class="form-group" style="max-width:240px">
               <label class="label">Typ</label>
@@ -812,18 +813,27 @@ async function setStatus(golferId, status) {
 // ── BONUS ─────────────────────────────────────────────
 function renderBonus() {
   document.getElementById('bonusAdminCard').style.display = S.isAdmin ? '' : 'none';
-  // Populate golfer select
   if (S.isAdmin) {
-    let opts = '';
-    for (const p of [...S.participants].sort((a,b)=>(a.draft_position||99)-(b.draft_position||99))) {
-      const golfers = S.golfers.filter(g => g.participant_id === p.id);
-      if (!golfers.length) continue;
-      opts += `<optgroup label="${esc(p.name)}">`;
-      golfers.forEach(g => { opts += `<option value="${g.id}">${esc(g.name)}</option>`; });
-      opts += '</optgroup>';
-    }
-    document.getElementById('bonusGolferSelect').innerHTML = opts;
+    document.getElementById('bonusSearch').value = '';
+    populateBonusSelect('');
   }
+}
+
+function populateBonusSelect(q) {
+  const allGolfers = [...S.golfers]
+    .sort((a,b) => a.name.localeCompare(b.name));
+  const filtered = q ? allGolfers.filter(g => g.name.toLowerCase().includes(q.toLowerCase())) : allGolfers;
+  const sel = document.getElementById('bonusGolferSelect');
+  sel.innerHTML = filtered.map(g => {
+    const team = S.participants.find(p => p.id === g.participant_id);
+    return `<option value="${g.id}">${esc(g.name)}${team ? ' · ' + esc(team.name) : ''}</option>`;
+  }).join('');
+}
+
+function filterBonusSelect() {
+  const q = document.getElementById('bonusSearch').value;
+  populateBonusSelect(q);
+}
 
   const list = document.getElementById('bonusList');
   if (S.bonuses.length === 0) {
