@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PGA Pool Draft – Valero Texas Open</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0F1923;
+  --card:#1A2535;
+  --card2:#1F2D40;
+  --border:rgba(255,255,255,.08);
+  --green:#2563EB;
+  --gold:#E63946;
+  --text:#FFFFFF;
+  --text2:rgba(255,255,255,.6);
+  --text3:rgba(255,255,255,.35);
+  --radius:12px;
+  --font-display:'Bebas Neue',Impact,sans-serif;
+  --font-body:'Inter',system-ui,sans-serif;
+}
+html,body{height:100%;font-family:var(--font-body);background:var(--bg);color:var(--text);overflow:hidden}
+
+/* Header */
+.header{background:linear-gradient(135deg,#1B3A5C,#0F2440);border-bottom:3px solid var(--gold);padding:16px 32px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.header-left{display:flex;flex-direction:column}
+.header-title{font-family:var(--font-display);font-size:36px;letter-spacing:4px;color:#fff}
+.header-sub{font-size:12px;color:rgba(255,255,255,.5);letter-spacing:4px;text-transform:uppercase;margin-top:2px}
+.header-right{display:flex;align-items:center;gap:12px}
+.next-pick-badge{background:rgba(230,57,70,.15);border:1px solid var(--gold);border-radius:8px;padding:8px 16px;text-align:center}
+.next-pick-label{font-size:10px;color:var(--text3);letter-spacing:2px;text-transform:uppercase}
+.next-pick-name{font-family:var(--font-display);font-size:24px;color:var(--gold);letter-spacing:2px}
+.next-pick-info{font-size:11px;color:var(--text2);margin-top:1px}
+
+/* Layout */
+.layout{display:flex;height:calc(100vh - 75px);gap:0}
+
+/* Left: Draft Board */
+.board{flex:1;overflow-y:auto;padding:24px;border-right:1px solid var(--border)}
+.board::-webkit-scrollbar{width:4px}
+.board::-webkit-scrollbar-track{background:transparent}
+.board::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:2px}
+
+.board-title{font-family:var(--font-display);font-size:22px;letter-spacing:3px;color:var(--text2);margin-bottom:16px}
+
+/* Team columns */
+.teams-grid{display:grid;gap:12px}
+.team-col{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.team-header{padding:10px 14px;background:var(--card2);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.team-pos{font-family:var(--font-display);font-size:20px;color:var(--text3);margin-right:8px}
+.team-name{font-weight:600;font-size:15px}
+.team-count{font-size:11px;color:var(--text3)}
+.pick-list{padding:8px}
+.pick-item{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:8px;margin-bottom:3px}
+.pick-item:last-child{margin-bottom:0}
+.pick-item.latest{background:rgba(230,57,70,.12);border:1px solid rgba(230,57,70,.3)}
+.pick-round{width:20px;height:20px;border-radius:50%;background:rgba(255,255,255,.06);font-size:10px;font-weight:600;color:var(--text3);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.pick-name{font-size:13px;font-weight:500}
+.pick-empty{font-size:12px;color:var(--text3);padding:6px 8px;font-style:italic}
+
+/* Round separators */
+.round-block{margin-bottom:20px}
+.round-label{font-family:var(--font-display);font-size:18px;letter-spacing:2px;color:var(--text3);margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+
+/* Right: Field + Admin */
+.sidebar{width:340px;display:flex;flex-direction:column;flex-shrink:0}
+.sidebar-top{padding:16px 20px;border-bottom:1px solid var(--border);flex-shrink:0}
+.sidebar-title{font-family:var(--font-display);font-size:20px;letter-spacing:2px;color:var(--text2);margin-bottom:10px}
+.search-input{width:100%;background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:#fff;font-size:14px;outline:none}
+.search-input::placeholder{color:var(--text3)}
+.search-input:focus{border-color:rgba(37,99,235,.5)}
+.field-list{flex:1;overflow-y:auto;padding:8px 12px}
+.field-list::-webkit-scrollbar{width:4px}
+.field-list::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:2px}
+.field-player{display:flex;align-items:center;justify-content:space-between;padding:7px 10px;border-radius:8px;cursor:pointer;transition:background .15s}
+.field-player:hover{background:var(--card2)}
+.field-player.drafted{opacity:.3;pointer-events:none}
+.field-player-name{font-size:13px;font-weight:500}
+.field-player-country{font-size:11px;color:var(--text3)}
+.pick-btn{padding:4px 12px;background:var(--gold);color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;transition:opacity .15s;white-space:nowrap}
+.pick-btn:hover{opacity:.85}
+
+/* Admin panel */
+.admin-bar{padding:12px 20px;border-top:1px solid var(--border);flex-shrink:0;background:var(--card)}
+.admin-bar-inner{display:flex;gap:8px;align-items:center}
+.team-select{flex:1;background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:#fff;font-size:13px;outline:none}
+.round-select{width:80px;background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:#fff;font-size:13px;outline:none}
+.btn{padding:8px 16px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:none;transition:opacity .15s}
+.btn:hover{opacity:.85}
+.btn-primary{background:var(--gold);color:#fff}
+.btn-secondary{background:var(--card2);color:var(--text);border:1px solid var(--border)}
+
+/* Login overlay */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:100;backdrop-filter:blur(4px)}
+.login-box{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:32px;width:320px}
+.login-title{font-family:var(--font-display);font-size:28px;letter-spacing:3px;margin-bottom:20px;text-align:center}
+.login-input{width:100%;background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:#fff;font-size:14px;outline:none;margin-bottom:10px}
+.login-input:focus{border-color:rgba(37,99,235,.5)}
+.btn-block{width:100%;padding:10px;margin-top:4px}
+
+/* Toast */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:#1A2535;border:1px solid var(--border);color:#fff;padding:10px 20px;border-radius:10px;font-size:13px;opacity:0;transition:all .3s;pointer-events:none;z-index:200;white-space:nowrap}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* Watcher mode (no admin) */
+.watcher-notice{font-size:11px;color:var(--text3);text-align:center;padding:8px;letter-spacing:1px}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <div class="header-title">Valero Texas Open</div>
+    <div class="header-sub">Draft Board · April 2026</div>
+  </div>
+  <div class="header-right">
+    <div class="next-pick-badge" id="nextPickBadge">
+      <div class="next-pick-label">Nächster Pick</div>
+      <div class="next-pick-name" id="nextPickName">—</div>
+      <div class="next-pick-info" id="nextPickInfo"></div>
+    </div>
+    <button class="btn btn-secondary" id="btnAdmin" onclick="toggleAdmin()">Admin Login</button>
+  </div>
+</div>
+
+<div class="layout">
+  <!-- Draft Board -->
+  <div class="board">
+    <div class="board-title">Draft Board</div>
+    <div id="draftBoard">
+      <div style="color:var(--text3);font-size:14px">Lade Daten...</div>
+    </div>
+  </div>
+
+  <!-- Sidebar: Field + Admin -->
+  <div class="sidebar">
+    <div class="sidebar-top">
+      <div class="sidebar-title">Spielerfeld</div>
+      <input class="search-input" type="text" id="fieldSearch" placeholder="Spieler suchen..." oninput="filterField()">
+    </div>
+    <div class="field-list" id="fieldList">
+      <div style="color:var(--text3);font-size:13px;padding:8px">Lade Feld...</div>
+    </div>
+    <div class="admin-bar" id="adminBar" style="display:none">
+      <div style="font-size:11px;color:var(--text3);letter-spacing:1px;margin-bottom:8px;text-transform:uppercase">Pick vergeben</div>
+      <div class="admin-bar-inner">
+        <select class="team-select" id="teamSelect"></select>
+        <select class="round-select" id="roundSelect">
+          <option value="1">R1</option>
+          <option value="2">R2</option>
+          <option value="3">R3</option>
+          <option value="4">R4</option>
+          <option value="5">R5</option>
+        </select>
+      </div>
+      <div style="font-size:12px;color:var(--text3);margin:8px 0 6px" id="selectedPlayerLabel">— Spieler auswählen —</div>
+      <button class="btn btn-primary btn-block" onclick="confirmPick()" id="pickBtn" disabled>Pick bestätigen</button>
+    </div>
+    <div class="watcher-notice" id="watcherNotice">Nur ansehen · Kein Admin-Zugriff</div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- Login Overlay -->
+<div class="overlay" id="loginOverlay" style="display:none">
+  <div class="login-box">
+    <div class="login-title">Admin Login</div>
+    <input class="login-input" type="email" id="loginEmail" placeholder="E-Mail" onkeydown="if(event.key==='Enter')doLogin()">
+    <input class="login-input" type="password" id="loginPass" placeholder="Passwort" onkeydown="if(event.key==='Enter')doLogin()">
+    <button class="btn btn-primary btn-block" onclick="doLogin()">Anmelden</button>
+    <button class="btn btn-secondary btn-block" style="margin-top:8px" onclick="closeLogin()">Abbrechen</button>
+  </div>
+</div>
+
+<script>
+const sb = supabase.createClient(
+  'https://wmqmufxyovfhxorzvrzn.supabase.co',
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndtcW11Znh5b3ZmaHhvcnp2cnpuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI4MjMxMTIsImV4cCI6MjA4ODM5OTExMn0.Q3yViDCbriTPgzJiHQBDd52m7skULMAYf7PrYr2Uais'
+);
+
+let S = {
+  participants: [],
+  golfers: [],
+  field: [],
+  isAdmin: false,
+  userId: null,
+  selectedPlayer: null,
+};
+
+// ── Data ──────────────────────────────────────────────
+async function loadAll() {
+  const [p, g] = await Promise.all([
+    sb.from('pga_test_participants').select('*').order('draft_position', { ascending: true, nullsFirst: false }),
+    sb.from('pga_test_golfers').select('*').order('draft_round').order('draft_pick'),
+  ]);
+  S.participants = p.data || [];
+  S.golfers = g.data || [];
+}
+
+async function loadField() {
+  const { data, error } = await sb.from('pga_test_field').select('name, country').order('name');
+  if (!error && data && data.length > 0) {
+    S.field = data;
+  }
+}
+
+// ── Render Board ──────────────────────────────────────
+function renderBoard() {
+  const board = document.getElementById('draftBoard');
+  if (S.participants.length === 0) {
+    board.innerHTML = '<div style="color:var(--text3);font-size:14px">Noch keine Mitspieler eingetragen.</div>';
+    return;
+  }
+
+  const ordered = [...S.participants].sort((a, b) => (a.draft_position || 99) - (b.draft_position || 99));
+  const cols = ordered.length;
+
+  // Set grid columns
+  board.style.display = 'grid';
+  board.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+  board.style.gap = '10px';
+  board.style.alignItems = 'start';
+
+  // Find latest pick
+  const latestPick = S.golfers.length > 0
+    ? S.golfers.reduce((a, b) => (a.draft_round * 100 + a.draft_pick) > (b.draft_round * 100 + b.draft_pick) ? a : b)
+    : null;
+
+  board.innerHTML = ordered.map(p => {
+    const picks = S.golfers.filter(g => g.participant_id === p.id)
+      .sort((a, b) => a.draft_round !== b.draft_round ? a.draft_round - b.draft_round : a.draft_pick - b.draft_pick);
+
+    const pickRows = picks.length > 0
+      ? picks.map(g => `
+          <div class="pick-item ${latestPick && g.id === latestPick.id ? 'latest' : ''}">
+            <div class="pick-round">${g.draft_round}</div>
+            <div class="pick-name">${esc(g.name)}</div>
+          </div>`).join('')
+      : '<div class="pick-empty">Noch kein Pick</div>';
+
+    return `<div class="team-col">
+      <div class="team-header">
+        <div style="display:flex;align-items:center">
+          <div class="team-pos">${p.draft_position || '?'}</div>
+          <div class="team-name">${esc(p.name)}</div>
+        </div>
+        <div class="team-count">${picks.length} Picks</div>
+      </div>
+      <div class="pick-list">${pickRows}</div>
+    </div>`;
+  }).join('');
+
+  updateNextPick();
+}
+
+function updateNextPick() {
+  const n = S.participants.length;
+  if (n === 0) return;
+  const totalPicks = S.golfers.length;
+  const round = Math.floor(totalPicks / n) + 1;
+  const pickInRound = totalPicks % n;
+  const isReverse = round % 2 === 0;
+  const ordered = [...S.participants].sort((a, b) => (a.draft_position || 99) - (b.draft_position || 99));
+  const nextIdx = isReverse ? (n - 1 - pickInRound) : pickInRound;
+  const next = ordered[nextIdx];
+
+  document.getElementById('nextPickName').textContent = next ? next.name : '—';
+  document.getElementById('nextPickInfo').textContent = next ? `Runde ${round}, Pick ${totalPicks + 1}` : '';
+
+  // Also update team select if admin
+  if (S.isAdmin) {
+    const sel = document.getElementById('teamSelect');
+    sel.innerHTML = ordered.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('');
+    if (next) sel.value = next.id;
+    document.getElementById('roundSelect').value = Math.min(round, 5);
+  }
+}
+
+// ── Render Field ──────────────────────────────────────
+function renderField() {
+  filterField();
+}
+
+function filterField() {
+  const query = document.getElementById('fieldSearch').value.toLowerCase().trim();
+  const list = document.getElementById('fieldList');
+  const drafted = new Set(S.golfers.map(g => g.name.toLowerCase().trim()));
+
+  let players = S.field;
+  if (query) players = players.filter(p => p.name.toLowerCase().includes(query));
+
+  if (players.length === 0) {
+    list.innerHTML = '<div style="color:var(--text3);font-size:13px;padding:8px">Keine Spieler gefunden</div>';
+    return;
+  }
+
+  list.innerHTML = players.map(p => {
+    const isDrafted = drafted.has(p.name.toLowerCase().trim());
+    return `<div class="field-player ${isDrafted ? 'drafted' : ''}" onclick="selectPlayer('${esc(p.name)}')">
+      <div>
+        <div class="field-player-name">${esc(p.name)}</div>
+        ${p.country ? `<div class="field-player-country">${esc(p.country)}</div>` : ''}
+      </div>
+      ${S.isAdmin && !isDrafted ? `<button class="pick-btn" onclick="event.stopPropagation();selectPlayer('${esc(p.name)}')">Wählen</button>` : ''}
+      ${isDrafted ? '<span style="font-size:11px;color:var(--text3)">✓</span>' : ''}
+    </div>`;
+  }).join('');
+}
+
+function selectPlayer(name) {
+  if (!S.isAdmin) return;
+  S.selectedPlayer = name;
+  document.getElementById('selectedPlayerLabel').textContent = '▶ ' + name;
+  document.getElementById('pickBtn').disabled = false;
+}
+
+// ── Pick ──────────────────────────────────────────────
+async function confirmPick() {
+  if (!S.selectedPlayer) return;
+  const pid = document.getElementById('teamSelect').value;
+  const round = parseInt(document.getElementById('roundSelect').value);
+  const name = S.selectedPlayer;
+
+  const existingInRound = S.golfers.filter(g => g.draft_round === round).length;
+  const { error } = await sb.from('pga_test_golfers').insert({
+    user_id: S.userId, name, participant_id: pid,
+    draft_round: round, draft_pick: existingInRound + 1
+  });
+  if (error) { showToast('Fehler: ' + error.message); return; }
+
+  S.selectedPlayer = null;
+  document.getElementById('selectedPlayerLabel').textContent = '— Spieler auswählen —';
+  document.getElementById('pickBtn').disabled = true;
+  document.getElementById('fieldSearch').value = '';
+
+  await loadAll();
+  renderBoard();
+  renderField();
+  showToast(name + ' gedraftet');
+}
+
+// ── Admin ─────────────────────────────────────────────
+function toggleAdmin() {
+  if (S.isAdmin) {
+    sb.auth.signOut();
+    S.isAdmin = false;
+    S.userId = null;
+    document.getElementById('btnAdmin').textContent = 'Admin Login';
+    document.getElementById('adminBar').style.display = 'none';
+    document.getElementById('watcherNotice').style.display = '';
+    renderField();
+    showToast('Abgemeldet');
+  } else {
+    document.getElementById('loginOverlay').style.display = 'flex';
+    setTimeout(() => document.getElementById('loginEmail').focus(), 100);
+  }
+}
+
+async function doLogin() {
+  const email = document.getElementById('loginEmail').value.trim();
+  const pass = document.getElementById('loginPass').value;
+  if (!email || !pass) return;
+  const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
+  if (error) { showToast('Login fehlgeschlagen'); return; }
+  S.isAdmin = true;
+  S.userId = data.user.id;
+  closeLogin();
+  document.getElementById('btnAdmin').textContent = 'Abmelden';
+  document.getElementById('adminBar').style.display = '';
+  document.getElementById('watcherNotice').style.display = 'none';
+  updateNextPick();
+  renderField();
+  showToast('Angemeldet');
+}
+
+function closeLogin() {
+  document.getElementById('loginOverlay').style.display = 'none';
+}
+
+// ── Utils ─────────────────────────────────────────────
+function esc(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// ── Auto-refresh ──────────────────────────────────────
+setInterval(async () => {
+  await loadAll();
+  renderBoard();
+  renderField();
+}, 10000);
+
+// ── Init ──────────────────────────────────────────────
+(async () => {
+  await Promise.all([loadAll(), loadField()]);
+  renderBoard();
+  renderField();
+})();
+</script>
+</body>
+</html>
