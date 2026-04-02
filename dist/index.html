@@ -1311,9 +1311,9 @@ function renderAdmin() {
   const c = document.getElementById('adminStatusContent');
   if (!c || !S.isAdmin) return;
 
-  const adminFilter = (document.getElementById('adminFilter')?.value || '').toLowerCase().trim();
+  const adminFilter = normalizeName(document.getElementById('adminFilter')?.value || '');
   let allGolfers = [...S.golfers].sort((a, b) => a.name.localeCompare(b.name));
-  if (adminFilter) allGolfers = allGolfers.filter(g => g.name.toLowerCase().includes(adminFilter));
+  if (adminFilter) allGolfers = allGolfers.filter(g => normalizeName(g.name).includes(adminFilter));
 
   let html = '<input class="input" type="text" id="adminFilter" placeholder="Spieler suchen..." oninput="renderAdmin()" style="margin-bottom:12px;width:100%;display:block">';
 
@@ -1735,9 +1735,9 @@ function renderLeaderboard() {
 
 
 
-  // Filter by search
-  const lbFilterVal = (document.getElementById('lbFilter')?.value || '').toLowerCase().trim();
-  const filteredRanking = lbFilterVal ? ranking.filter(t => t.name.toLowerCase().includes(lbFilterVal)) : ranking;
+  // Filter by search (normalize to match accented names like Åberg/Âberg)
+  const lbFilterVal = normalizeName(document.getElementById('lbFilter')?.value || '');
+  const filteredRanking = lbFilterVal ? ranking.filter(t => normalizeName(t.name).includes(lbFilterVal)) : ranking;
 
   // Round tabs
   const days = ['Gesamt','Do','Fr','Sa','So'];
@@ -2179,7 +2179,7 @@ function renderTournament() {
     return;
   }
 
-  const filter = (document.getElementById('tournamentFilter')?.value || '').toLowerCase().trim();
+  const filter = normalizeName(document.getElementById('tournamentFilter')?.value || '');
 
   // Build player list sorted by toPar
   let players = entries.map(([name, data]) => {
@@ -2193,7 +2193,7 @@ function renderTournament() {
   });
 
   if (filter) {
-    players = players.filter(p => p.name.toLowerCase().includes(filter) || (p.team && p.team.toLowerCase().includes(filter)));
+    players = players.filter(p => normalizeName(p.name).includes(filter) || (p.team && normalizeName(p.team).includes(filter)));
   }
 
   players.sort((a, b) => a.data.toPar - b.data.toPar);
