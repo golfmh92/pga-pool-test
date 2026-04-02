@@ -489,6 +489,115 @@ body::before{content:'';position:fixed;inset:0;background:
   </nav>
 </div>
 
+<!-- PWA Install Prompt -->
+<div id="pwa-prompt-modal" style="display:none;position:fixed;inset:0;z-index:300;background:rgba(0,0,0,0.65);align-items:flex-end;justify-content:center">
+  <div style="background:var(--card);border-radius:28px 28px 0 0;width:100%;max-width:500px;max-height:90vh;overflow-y:auto;padding:24px 20px 40px;margin:0 auto">
+    <!-- Handle -->
+    <div style="width:36px;height:4px;background:var(--bg3);border-radius:2px;margin:0 auto 20px"></div>
+    <!-- Header -->
+    <div style="text-align:center;margin-bottom:6px">
+      <div style="font-size:40px;margin-bottom:8px">📱</div>
+      <div style="font-size:11px;font-weight:600;color:var(--green);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px">Für ein besseres Erlebnis</div>
+      <div style="font-family:var(--font-display);font-size:24px;color:var(--text)">Wie eine native App</div>
+      <div style="font-size:13px;color:var(--text2);margin-top:6px;line-height:1.5">Füge den PGA Pool zum Home-Bildschirm hinzu — so startet die App ohne Browser-Leiste, genau wie eine echte App.</div>
+    </div>
+    <!-- Platform Tabs -->
+    <div style="display:flex;gap:0;background:var(--bg2);border-radius:12px;overflow:hidden;border:1px solid var(--border);margin:18px 0 20px">
+      <button id="pwa-tab-ios" onclick="pwaSelectTab('ios')" style="flex:1;padding:10px;border:none;cursor:pointer;font-family:var(--font-body);font-size:13px;font-weight:600;border-radius:0;transition:background .15s,color .15s">
+         iPhone (Safari)
+      </button>
+      <button id="pwa-tab-android" onclick="pwaSelectTab('android')" style="flex:1;padding:10px;border:none;border-left:1px solid var(--border);cursor:pointer;font-family:var(--font-body);font-size:13px;font-weight:600;border-radius:0;transition:background .15s,color .15s">
+        🤖 Android (Chrome)
+      </button>
+    </div>
+    <!-- iOS Steps -->
+    <div id="pwa-steps-ios" style="display:flex;flex-direction:column;gap:12px">
+      <div style="display:flex;align-items:flex-start;gap:14px;background:var(--card2);border-radius:14px;padding:14px 16px;border:1px solid var(--border)">
+        <div style="width:32px;height:32px;border-radius:50%;background:var(--green);color:white;font-size:14px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">1</div>
+        <div>
+          <div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:3px">Öffne Safari</div>
+          <div style="font-size:12px;color:var(--text2);line-height:1.5">Die App muss im Safari-Browser geöffnet sein — andere Browser funktionieren für diesen Schritt nicht.</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:flex-start;gap:14px;background:var(--card2);border-radius:14px;padding:14px 16px;border:1px solid var(--border)">
+        <div style="width:32px;height:32px;border-radius:50%;background:var(--green);color:white;font-size:14px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">2</div>
+        <div>
+          <div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:3px">Tippe auf das Teilen-Symbol</div>
+          <div style="font-size:12px;color:var(--text2);line-height:1.5">Das Quadrat mit dem Pfeil nach oben findest du in der unteren Symbolleiste.</div>
+          <div style="margin-top:10px;background:var(--bg2);border-radius:10px;padding:10px 14px;text-align:center">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--green)"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+            <div style="font-size:11px;color:var(--text3);margin-top:4px">Teilen-Symbol</div>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:flex-start;gap:14px;background:var(--card2);border-radius:14px;padding:14px 16px;border:1px solid var(--border)">
+        <div style="width:32px;height:32px;border-radius:50%;background:var(--green);color:white;font-size:14px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">3</div>
+        <div>
+          <div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:3px">„Zum Home-Bildschirm" wählen</div>
+          <div style="font-size:12px;color:var(--text2);line-height:1.5">Scrolle im Teilen-Menü nach unten, bis du den Eintrag siehst.</div>
+          <div style="margin-top:10px;background:var(--bg2);border-radius:10px;padding:10px 14px;display:flex;align-items:center;gap:10px">
+            <div style="width:36px;height:36px;background:var(--card);border-radius:8px;display:flex;align-items:center;justify-content:center;border:1px solid var(--border);flex-shrink:0">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--text2)"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M8 12h8M12 8v8"/></svg>
+            </div>
+            <div style="font-size:13px;font-weight:500;color:var(--text)">Zum Home-Bildschirm</div>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:flex-start;gap:14px;background:var(--card2);border-radius:14px;padding:14px 16px;border:1px solid var(--border)">
+        <div style="width:32px;height:32px;border-radius:50%;background:var(--green);color:white;font-size:14px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">4</div>
+        <div>
+          <div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:3px">„Hinzufügen" bestätigen</div>
+          <div style="font-size:12px;color:var(--text2);line-height:1.5">Tippe oben rechts auf „Hinzufügen" — fertig! Das PGA-Pool-Icon erscheint auf deinem Home-Bildschirm.</div>
+        </div>
+      </div>
+    </div>
+    <!-- Android Steps -->
+    <div id="pwa-steps-android" style="display:none">
+      <div style="display:flex;flex-direction:column;gap:12px">
+      <div style="display:flex;align-items:flex-start;gap:14px;background:var(--card2);border-radius:14px;padding:14px 16px;border:1px solid var(--border)">
+        <div style="width:32px;height:32px;border-radius:50%;background:var(--green);color:white;font-size:14px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">1</div>
+        <div>
+          <div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:3px">Öffne Chrome</div>
+          <div style="font-size:12px;color:var(--text2);line-height:1.5">Die App muss im Google Chrome Browser geöffnet sein.</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:flex-start;gap:14px;background:var(--card2);border-radius:14px;padding:14px 16px;border:1px solid var(--border)">
+        <div style="width:32px;height:32px;border-radius:50%;background:var(--green);color:white;font-size:14px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">2</div>
+        <div>
+          <div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:3px">Tippe auf das Menü ⋮</div>
+          <div style="font-size:12px;color:var(--text2);line-height:1.5">Die drei Punkte oben rechts öffnen das Chrome-Menü.</div>
+          <div style="margin-top:10px;background:var(--bg2);border-radius:10px;padding:10px 14px;text-align:center">
+            <div style="font-size:22px;font-weight:900;color:var(--green);letter-spacing:2px">⋮</div>
+            <div style="font-size:11px;color:var(--text3);margin-top:2px">Menü-Symbol</div>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:flex-start;gap:14px;background:var(--card2);border-radius:14px;padding:14px 16px;border:1px solid var(--border)">
+        <div style="width:32px;height:32px;border-radius:50%;background:var(--green);color:white;font-size:14px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">3</div>
+        <div>
+          <div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:3px">„App installieren"</div>
+          <div style="font-size:12px;color:var(--text2);line-height:1.5">Je nach Android-Version kann der Eintrag auch „Zum Startbildschirm hinzufügen" heißen.</div>
+          <div style="margin-top:10px;background:var(--bg2);border-radius:10px;padding:10px 14px;display:flex;align-items:center;gap:10px">
+            <div style="font-size:18px">📲</div>
+            <div style="font-size:13px;font-weight:500;color:var(--text)">App installieren</div>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:flex-start;gap:14px;background:var(--card2);border-radius:14px;padding:14px 16px;border:1px solid var(--border)">
+        <div style="width:32px;height:32px;border-radius:50%;background:var(--green);color:white;font-size:14px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">4</div>
+        <div>
+          <div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:3px">„Installieren" bestätigen</div>
+          <div style="font-size:12px;color:var(--text2);line-height:1.5">Tippe auf „Installieren" — das PGA-Pool-Icon erscheint auf deinem Startbildschirm.</div>
+        </div>
+      </div>
+      </div>
+    </div>
+    <!-- CTA -->
+    <button onclick="closePWAPrompt(true)" style="width:100%;font-size:15px;padding:15px;margin-top:24px;background:var(--green);color:#fff;border:none;border-radius:12px;font-weight:600;font-family:var(--font-body);cursor:pointer">Verstanden</button>
+    <div onclick="closePWAPrompt(false)" style="text-align:center;font-size:12px;color:var(--text3);margin-top:12px;cursor:pointer">Später erinnern</div>
+  </div>
+</div>
+
 <!-- Stats Slide-In Panel -->
 <div class="st-panel" id="stPanel">
   <div class="st-panel-bg" onclick="closeStPanel()"></div>
@@ -2726,6 +2835,62 @@ function updatePushUI() {
   btn.classList.toggle('active', S.pushEnabled || S.pushFavs);
 }
 
+/* ===================== Onboarding ===================== */
+function isRunningStandalone() {
+  return window.matchMedia('(display-mode: standalone)').matches || !!window.navigator.standalone;
+}
+
+function hasSeenPWAPrompt() {
+  return localStorage.getItem('pga_pwa_prompt_shown') === '1';
+}
+
+function hasSeenTutorial() {
+  return localStorage.getItem('pga_tutorial_shown') === '1';
+}
+
+let _pwaShownThisSession = false;
+
+function showPWAPrompt() {
+  if (_pwaShownThisSession) return;
+  if (hasSeenPWAPrompt()) return;
+  if (isRunningStandalone()) return;
+  _pwaShownThisSession = true;
+  const ua = navigator.userAgent || '';
+  const isIOS = /iphone|ipad|ipod/i.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  pwaSelectTab(isIOS ? 'ios' : 'android');
+  const modal = document.getElementById('pwa-prompt-modal');
+  if (modal) modal.style.display = 'flex';
+}
+
+function closePWAPrompt(permanent) {
+  if (permanent) localStorage.setItem('pga_pwa_prompt_shown', '1');
+  const modal = document.getElementById('pwa-prompt-modal');
+  if (modal) modal.style.display = 'none';
+  // After PWA prompt dismiss, show tutorial if not seen
+  if (!hasSeenTutorial()) {
+    setTimeout(showTutorial, 400);
+  }
+}
+
+function pwaSelectTab(platform) {
+  const iosBtn = document.getElementById('pwa-tab-ios');
+  const andBtn = document.getElementById('pwa-tab-android');
+  const iosSteps = document.getElementById('pwa-steps-ios');
+  const andSteps = document.getElementById('pwa-steps-android');
+  if (!iosBtn || !andBtn) return;
+  if (platform === 'ios') {
+    iosBtn.style.background = 'var(--green)'; iosBtn.style.color = '#fff';
+    andBtn.style.background = 'transparent'; andBtn.style.color = '';
+    if (iosSteps) { iosSteps.style.display = 'flex'; iosSteps.style.flexDirection = 'column'; iosSteps.style.gap = '12px'; }
+    if (andSteps) andSteps.style.display = 'none';
+  } else {
+    andBtn.style.background = 'var(--green)'; andBtn.style.color = '#fff';
+    iosBtn.style.background = 'transparent'; iosBtn.style.color = '';
+    if (andSteps) { andSteps.style.display = 'flex'; andSteps.style.flexDirection = 'column'; andSteps.style.gap = '12px'; }
+    if (iosSteps) iosSteps.style.display = 'none';
+  }
+}
+
 /* ===================== Start ===================== */
 init().then(() => {
   startLiveRefresh();
@@ -2733,6 +2898,12 @@ init().then(() => {
   S.pushEnabled = localStorage.getItem('pga_test_push') === 'true';
   S.pushFavs = localStorage.getItem('pga_test_push_favs') === 'true';
 
+  // Onboarding
+  if (!isRunningStandalone() && !hasSeenPWAPrompt()) {
+    setTimeout(showPWAPrompt, 1500);
+  } else if (!hasSeenTutorial()) {
+    setTimeout(showTutorial, 800);
+  }
 });
 </script>
 </body>
