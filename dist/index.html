@@ -1662,7 +1662,8 @@ function renderLeaderboard() {
             // Mid-round: show toPar + thru instead of score
             if (g._live && g._live.currentRound === r && !g._live.finished) {
               const rtp = g._live['r' + r + '_toPar'] !== undefined ? g._live['r' + r + '_toPar'] : g._live.toPar;
-              return `<div class="golfer-rd" style="font-size:11px;color:var(--green);font-weight:600;line-height:1.1">${fmtScore(rtp)}<div style="font-size:8px;color:var(--text3);font-weight:400">${g._live.thru}</div></div>`;
+              const midBonusBadge = r === 1 && bonus > 0 ? `<div style="font-size:8px;color:var(--gold2);line-height:1;margin-top:2px">★-${bonus}</div>` : '';
+              return `<div class="golfer-rd" style="font-size:11px;color:var(--green);font-weight:600;line-height:1.1">${fmtScore(rtp)}<div style="font-size:8px;color:var(--text3);font-weight:400">${g._live.thru}</div>${midBonusBadge}</div>`;
             }
             const bonusBadge = r === 1 && bonus > 0 ? `<div style="font-size:8px;color:var(--gold2);line-height:1;margin-top:2px">★-${bonus}</div>` : '';
             return `<div class="golfer-rd ${sCls}" style="height:auto;${counting ? 'background:rgba(0,103,71,.08);font-weight:700' : ''}">${sc !== null ? sc : '—'}${bonusBadge}</div>`;
