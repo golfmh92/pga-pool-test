@@ -3047,6 +3047,15 @@ function initTutorialSwipe() {
   }, { passive: false });
 });
 
+// Tap statusbar area to scroll-to-top (standalone PWA workaround)
+if (isRunningStandalone()) {
+  document.addEventListener('click', e => {
+    if (e.clientY > 44) return; // only top 44px (statusbar zone)
+    const active = document.querySelector('.view.active');
+    if (active) active.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+}
+
 /* ===================== Start ===================== */
 init().then(() => {
   startLiveRefresh();
