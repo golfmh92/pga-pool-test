@@ -992,24 +992,29 @@ function getTeamBonusTotal(participantId) {
 }
 
 function calcTeamTotalLive(participantId) {
-  // During live play: use best N golfers' ESPN toPar for ranking
+  // During live play: use best N golfers' ESPN toPar for ranking, with bonus applied
   const teamGolfers = S.golfers.filter(g => g.participant_id === participantId);
   const hasLive = teamGolfers.some(g => g._live);
   if (!hasLive) return null;
 
-  // Determine how many count (simplified: best 4 before cut, best 3 after)
+  // Determine how many count (best 4 before cut, best 3 after)
   const hasCutData = teamGolfers.some(g => g._live && g._live.status === 'cut');
   const count = hasCutData ? 3 : 4;
 
-  const toParValues = teamGolfers
+  const entries = teamGolfers
     .filter(g => g._live && g._live.status !== 'cut' && golferStatus(g) !== 'wd')
-    .map(g => g._live.toPar)
-    .filter(v => v !== undefined && v !== null);
+    .map(g => {
+      const toPar = g._live.toPar;
+      if (toPar === undefined || toPar === null) return null;
+      const bonus = getGolferBonus(g.id);
+      return { toPar: toPar - bonus, bonus };
+    })
+    .filter(v => v !== null);
 
-  if (toParValues.length === 0) return null;
-  toParValues.sort((a, b) => a - b);
-  const best = toParValues.slice(0, count);
-  return best.reduce((a, b) => a + b, 0);
+  if (entries.length === 0) return null;
+  entries.sort((a, b) => a.toPar - b.toPar);
+  const best = entries.slice(0, count);
+  return best.reduce((sum, e) => sum + e.toPar, 0);
 }
 
 function getRanking() {
@@ -1017,12 +1022,12 @@ function getRanking() {
     const eliminated = checkEliminated(p.id);
     const bonus = getTeamBonusTotal(p.id);
     const rounds = [1,2,3,4].map(r => calcTeamRoundScore(p.id, r));
-    // Prefer live ESPN toPar data (handles mid-round correctly)
+    // Prefer live ESPN toPar data (handles mid-round correctly, bonus already applied)
     const totalLive = calcTeamTotalLive(p.id);
     let total = null;
     let hasAny = false;
     if (totalLive !== null) {
-      total = totalLive - bonus;
+      total = totalLive;
       hasAny = true;
     } else {
       // Fallback to completed round scores (post-tournament when live feed stops)
