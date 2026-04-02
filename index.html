@@ -929,13 +929,22 @@ function calcTeamRoundScore(participantId, round) {
   const roundScores = [];
   for (const g of teamGolfers) {
     const gs = golferStatus(g);
-    if (gs === 'wd') continue; // WD: skip all rounds
-    if (round >= 3 && (gs === 'cut' || !g.made_cut)) continue; // CUT: skip R3+R4
+    if (gs === 'wd') continue;
+    if (round >= 3 && (gs === 'cut' || !g.made_cut)) continue;
     const sc = getGolferScore(g.id, round);
+    let toPar = null;
     if (sc !== null) {
-      // Bonus applies only in R1: subtract bonus shots from golfer score before best-N selection
+      // Completed round score
+      toPar = sc - PAR;
+    } else if (g._live && g._live.currentRound === round && !g._live.finished) {
+      // Mid-round: use live round toPar
+      const rtp = g._live['r' + round + '_toPar'];
+      if (rtp !== undefined && rtp !== null) toPar = rtp;
+    }
+    if (toPar !== null) {
+      // Bonus applies only in R1
       const bonus = round === 1 ? getGolferBonus(g.id) : 0;
-      roundScores.push(sc - PAR - bonus);
+      roundScores.push(toPar - bonus);
     }
   }
   if (roundScores.length === 0) return null;
@@ -992,29 +1001,23 @@ function getTeamBonusTotal(participantId) {
 }
 
 function calcTeamTotalLive(participantId) {
-  // During live play: use best N golfers' ESPN toPar for ranking, with bonus applied
+  // Fallback for when no round scores available: use overall ESPN toPar
   const teamGolfers = S.golfers.filter(g => g.participant_id === participantId);
   const hasLive = teamGolfers.some(g => g._live);
   if (!hasLive) return null;
 
-  // Determine how many count (best 4 before cut, best 3 after)
   const hasCutData = teamGolfers.some(g => g._live && g._live.status === 'cut');
   const count = hasCutData ? 3 : 4;
 
-  const entries = teamGolfers
+  const toParValues = teamGolfers
     .filter(g => g._live && g._live.status !== 'cut' && golferStatus(g) !== 'wd')
-    .map(g => {
-      const toPar = g._live.toPar;
-      if (toPar === undefined || toPar === null) return null;
-      const bonus = getGolferBonus(g.id);
-      return { toPar: toPar - bonus, bonus };
-    })
-    .filter(v => v !== null);
+    .map(g => g._live.toPar)
+    .filter(v => v !== undefined && v !== null);
 
-  if (entries.length === 0) return null;
-  entries.sort((a, b) => a.toPar - b.toPar);
-  const best = entries.slice(0, count);
-  return best.reduce((sum, e) => sum + e.toPar, 0);
+  if (toParValues.length === 0) return null;
+  toParValues.sort((a, b) => a - b);
+  const best = toParValues.slice(0, count);
+  return best.reduce((a, b) => a + b, 0);
 }
 
 function getRanking() {
@@ -1022,18 +1025,16 @@ function getRanking() {
     const eliminated = checkEliminated(p.id);
     const bonus = getTeamBonusTotal(p.id);
     const rounds = [1,2,3,4].map(r => calcTeamRoundScore(p.id, r));
-    // Prefer live ESPN toPar data (handles mid-round correctly, bonus already applied)
-    const totalLive = calcTeamTotalLive(p.id);
+    // Sum round scores (now includes mid-round live data + R1 bonus)
     let total = null;
     let hasAny = false;
-    if (totalLive !== null) {
-      total = totalLive;
-      hasAny = true;
-    } else {
-      // Fallback to completed round scores (post-tournament when live feed stops)
-      for (const rs of rounds) {
-        if (rs !== null) { total = (total || 0) + rs; hasAny = true; }
-      }
+    for (const rs of rounds) {
+      if (rs !== null) { total = (total || 0) + rs; hasAny = true; }
+    }
+    // Fallback: if no round data at all, use overall live toPar
+    if (!hasAny) {
+      const totalLive = calcTeamTotalLive(p.id);
+      if (totalLive !== null) { total = totalLive; hasAny = true; }
     }
     const isLive = hasAny;
     return { ...p, total: hasAny ? total : null, bonus, rounds, isEliminated: eliminated, isLive };
