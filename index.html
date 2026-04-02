@@ -851,10 +851,10 @@ function getRanking() {
     for (const rs of rounds) {
       if (rs !== null) { total = (total || 0) + rs; hasAny = true; }
     }
-    // If no round scores yet, fall back to live toPar ranking (bonus not yet applicable)
+    // If no round scores yet, fall back to live toPar ranking + bonus
     if (!hasAny) {
       const totalLive = calcTeamTotalLive(p.id);
-      if (totalLive !== null) { total = totalLive; hasAny = true; }
+      if (totalLive !== null) { total = totalLive - bonus; hasAny = true; }
     }
     const isLive = hasAny;
     return { ...p, total: hasAny ? total : null, bonus, rounds, isEliminated: eliminated, isLive };
