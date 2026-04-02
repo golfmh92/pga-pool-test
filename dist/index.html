@@ -1017,16 +1017,18 @@ function getRanking() {
     const eliminated = checkEliminated(p.id);
     const bonus = getTeamBonusTotal(p.id);
     const rounds = [1,2,3,4].map(r => calcTeamRoundScore(p.id, r));
-    // Total = sum of round scores (bonus already baked into R1 via calcTeamRoundScore)
+    // Prefer live ESPN toPar data (handles mid-round correctly)
+    const totalLive = calcTeamTotalLive(p.id);
     let total = null;
     let hasAny = false;
-    for (const rs of rounds) {
-      if (rs !== null) { total = (total || 0) + rs; hasAny = true; }
-    }
-    // If no round scores yet, fall back to live toPar ranking + bonus
-    if (!hasAny) {
-      const totalLive = calcTeamTotalLive(p.id);
-      if (totalLive !== null) { total = totalLive - bonus; hasAny = true; }
+    if (totalLive !== null) {
+      total = totalLive - bonus;
+      hasAny = true;
+    } else {
+      // Fallback to completed round scores (post-tournament when live feed stops)
+      for (const rs of rounds) {
+        if (rs !== null) { total = (total || 0) + rs; hasAny = true; }
+      }
     }
     const isLive = hasAny;
     return { ...p, total: hasAny ? total : null, bonus, rounds, isEliminated: eliminated, isLive };
