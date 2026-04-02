@@ -291,9 +291,9 @@ body::before{content:'';position:fixed;inset:0;background:
 .btn-block{width:100%}
 
 /* ===== Modal ===== */
-.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);z-index:200;display:flex;align-items:flex-end;justify-content:center;opacity:0;pointer-events:none;transition:opacity .25s}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);z-index:200;display:flex;align-items:flex-end;justify-content:center;opacity:0;pointer-events:none;transition:opacity .25s;overscroll-behavior:contain}
 .modal-overlay.open{opacity:1;pointer-events:auto}
-.modal{width:100%;max-width:500px;max-height:85vh;background:var(--card);border-radius:20px 20px 0 0;padding:8px 20px calc(var(--safe-bottom) + 20px);overflow-y:auto;transform:translateY(100%);transition:transform .3s cubic-bezier(.32,.72,0,1)}
+.modal{width:100%;max-width:500px;max-height:85vh;background:var(--card);border-radius:20px 20px 0 0;padding:8px 20px calc(var(--safe-bottom) + 20px);overflow-y:auto;transform:translateY(100%);transition:transform .3s cubic-bezier(.32,.72,0,1);overscroll-behavior:contain}
 .modal-overlay.open .modal{transform:translateY(0)}
 .modal-handle{width:36px;height:4px;background:var(--border);border-radius:2px;margin:8px auto 16px}
 .modal h2{font-family:var(--font-display);font-size:22px;font-weight:700;color:var(--green);margin-bottom:20px}
@@ -2442,11 +2442,14 @@ function openModal(id) {
 function closeModal(id) {
   document.getElementById(id).classList.remove('open');
 }
-// Close modals on backdrop click
+// Close modals on backdrop click + prevent background scroll
 document.querySelectorAll('.modal-overlay').forEach(overlay => {
   overlay.addEventListener('click', e => {
     if (e.target === overlay) overlay.classList.remove('open');
   });
+  overlay.addEventListener('touchmove', e => {
+    if (!e.target.closest('.modal')) e.preventDefault();
+  }, { passive: false });
 });
 // Swipe-down to dismiss modals
 document.querySelectorAll('.modal').forEach(modal => {
@@ -3034,6 +3037,15 @@ function initTutorialSwipe() {
     swiping = false;
   }, { passive: true });
 }
+
+// Prevent background scroll on PWA/tutorial modals
+['pwa-prompt-modal', 'tutorial-modal'].forEach(id => {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.addEventListener('touchmove', e => {
+    if (!e.target.closest('#' + id + ' > div')) e.preventDefault();
+  }, { passive: false });
+});
 
 /* ===================== Start ===================== */
 init().then(() => {
