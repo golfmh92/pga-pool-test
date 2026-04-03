@@ -612,7 +612,15 @@ body::before{content:'';position:fixed;inset:0;background:
   <div style="background:var(--card);border-radius:var(--radius);width:calc(100% - 48px);max-width:340px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.3)">
     <!-- Slides Container -->
     <div id="tutorial-track" style="display:flex;transition:transform .3s ease;touch-action:pan-y">
-      <!-- Slide 1: Rangliste -->
+      <!-- Slide 1: Profil -->
+      <div class="tutorial-slide" style="min-width:100%;padding:40px 24px 24px;text-align:center">
+        <div style="margin-bottom:16px">
+          <div style="width:56px;height:56px;border-radius:50%;background:var(--gold);color:#fff;font-size:22px;font-weight:700;display:flex;align-items:center;justify-content:center;margin:0 auto;border:3px solid var(--gold)">S1</div>
+        </div>
+        <div style="font-family:var(--font-display);font-size:24px;color:var(--text);margin-bottom:8px">Dein Profil</div>
+        <div style="font-size:14px;color:var(--text2);line-height:1.6">Tippe oben links auf den Kreis und wähle deinen Namen aus. Dann siehst du deine Golfer oben in der Rangliste und sie werden im Leaderboard hervorgehoben.</div>
+      </div>
+      <!-- Slide 2: Rangliste -->
       <div class="tutorial-slide" style="min-width:100%;padding:40px 24px 24px;text-align:center">
         <div style="margin-bottom:16px">
           <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21h8m-4-4v4M6 3h12l-1.5 6.5a2 2 0 01-2 1.5h-5a2 2 0 01-2-1.5L6 3z"/><circle cx="12" cy="13" r="2"/></svg>
@@ -657,6 +665,7 @@ body::before{content:'';position:fixed;inset:0;background:
     <div style="padding:0 24px 24px;text-align:center">
       <div id="tutorial-dots" style="display:flex;justify-content:center;gap:8px;margin-bottom:16px">
         <div class="tutorial-dot active" style="width:8px;height:8px;border-radius:50%;background:var(--green);transition:background .2s"></div>
+        <div class="tutorial-dot" style="width:8px;height:8px;border-radius:50%;background:var(--bg3);transition:background .2s"></div>
         <div class="tutorial-dot" style="width:8px;height:8px;border-radius:50%;background:var(--bg3);transition:background .2s"></div>
         <div class="tutorial-dot" style="width:8px;height:8px;border-radius:50%;background:var(--bg3);transition:background .2s"></div>
         <div class="tutorial-dot" style="width:8px;height:8px;border-radius:50%;background:var(--bg3);transition:background .2s"></div>
@@ -2241,6 +2250,7 @@ function renderTournament() {
     const isCut = p.data.status === 'cut';
     const isOut = isWD || isCut;
     const isFav = S.favorites && S.favorites.has(p.name);
+    const isMine = S.myName && p.team === S.myName;
     const starSvg = isFav
       ? `<svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 22 12 18.27 5.82 22 7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>`
       : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 22 12 18.27 5.82 22 7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>`;
@@ -2249,6 +2259,7 @@ function renderTournament() {
     const nameParts = p.name.trim().split(' ');
     const shortName = nameParts.length > 1 ? nameParts.slice(1).join(' ') + ' ' + nameParts[0][0] + '.' : p.name;
     const teamBadge = p.team ? `<div style="font-size:10px;color:var(--gold);margin-top:1px">${esc(p.team)}</div>` : '';
+    const mineStyle = isMine && !isOut ? 'border-color:var(--green);background:linear-gradient(135deg,rgba(27,58,92,.06),#fff)' : '';
 
     if (isOut) {
       const badge = isWD ? 'WD' : 'MC';
@@ -2288,7 +2299,7 @@ function renderTournament() {
       return `<span style="color:${rel < 0 ? '#E63946' : rel === 0 ? '#2563EB' : '#000'};font-weight:500">${sc}</span>`;
     });
 
-    return `<div class="lb-entry" style="cursor:pointer;flex-wrap:nowrap" onclick="showScorecardByName('${esc(p.name)}')">
+    return `<div class="lb-entry" style="cursor:pointer;flex-wrap:nowrap;${mineStyle}" onclick="showScorecardByName('${esc(p.name)}')">
       ${favBtn}
       <div class="lb-rank" style="width:28px;flex-shrink:0">${p._showRank ? p._rank : ''}</div>
       <div style="flex:1;min-width:0;overflow:hidden">
@@ -3028,7 +3039,7 @@ function pwaSelectTab(platform) {
 }
 
 let _tutorialSlide = 0;
-const TUTORIAL_TOTAL = 5;
+const TUTORIAL_TOTAL = 6;
 
 function showTutorial() {
   _tutorialSlide = 0;
