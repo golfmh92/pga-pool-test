@@ -2833,9 +2833,6 @@ function updateLiveBadge(active) {
   if (active && S.liveLastUpdate) {
     badge.classList.remove('stale');
     text.textContent = 'Live';
-  } else if (S.tournamentLive) {
-    badge.classList.add('stale');
-    text.textContent = 'Pause';
   } else {
     badge.style.display = 'none';
   }
