@@ -1319,7 +1319,7 @@ function renderAdmin() {
 
   const adminFilter = normalizeName(document.getElementById('adminFilter')?.value || '');
   let allGolfers = [...S.golfers].sort((a, b) => a.name.localeCompare(b.name));
-  if (adminFilter) allGolfers = allGolfers.filter(g => normalizeName(g.name).includes(adminFilter));
+  if (adminFilter) allGolfers = allGolfers.filter(g => fuzzyMatch(g.name, adminFilter));
 
   const adminHasVal = document.getElementById('adminFilter')?.value?.trim();
   let html = `<div style="position:relative;margin-bottom:12px">
@@ -1750,7 +1750,7 @@ function renderLeaderboard() {
   const lbFilterVal = normalizeName(lbFilterEl?.value || '');
   const lbClear = document.getElementById('lbFilterClear');
   if (lbClear) lbClear.style.display = lbFilterEl?.value?.trim() ? 'flex' : 'none';
-  const filteredRanking = lbFilterVal ? ranking.filter(t => normalizeName(t.name).includes(lbFilterVal)) : ranking;
+  const filteredRanking = lbFilterVal ? ranking.filter(t => fuzzyMatch(t.name, lbFilterVal)) : ranking;
 
   // Round tabs
   const days = ['Gesamt','Do','Fr','Sa','So'];
@@ -2225,7 +2225,7 @@ function renderTournament() {
 
   // Apply search filter
   let players = filter
-    ? allPlayers.filter(p => normalizeName(p.name).includes(filter) || (p.team && normalizeName(p.team).includes(filter)))
+    ? allPlayers.filter(p => fuzzyMatch(p.name, filter) || (p.team && fuzzyMatch(p.team, filter)))
     : allPlayers;
 
   // Compute _showRank on display list (show rank for first at each score)
@@ -2633,6 +2633,23 @@ function selectFieldPlayer(name, el) {
 function normalizeName(name) {
   return name.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
     .toLowerCase().replace(/[^a-z ]/g, '').replace(/\s+/g, ' ').trim();
+}
+
+function fuzzyMatch(text, query) {
+  // Subsequence match: "inty" matches "macintyre"
+  if (!query) return true;
+  const t = normalizeName(text);
+  const q = normalizeName(query);
+  // First try substring (faster, preferred)
+  if (t.includes(q)) return true;
+  // Then try subsequence
+  let ti = 0;
+  for (let qi = 0; qi < q.length; qi++) {
+    while (ti < t.length && t[ti] !== q[qi]) ti++;
+    if (ti >= t.length) return false;
+    ti++;
+  }
+  return true;
 }
 
 function matchGolferToLive(golferName) {
