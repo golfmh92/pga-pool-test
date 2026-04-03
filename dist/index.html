@@ -400,7 +400,10 @@ body::before{content:'';position:fixed;inset:0;background:
 
     <!-- TOURNAMENT LEADERBOARD -->
     <div class="view" id="viewTournament">
-      <input class="input" type="text" id="tournamentFilter" placeholder="Spieler suchen..." oninput="renderTournament()" style="margin-bottom:12px;width:100%;display:block">
+      <div style="position:relative;margin-bottom:12px">
+        <input class="input" type="text" id="tournamentFilter" placeholder="Spieler suchen..." oninput="renderTournament()" style="width:100%;display:block;padding-right:36px">
+        <div id="tournamentFilterClear" onclick="document.getElementById('tournamentFilter').value='';document.getElementById('tournamentFilter').blur();renderTournament()" style="display:none;position:absolute;right:10px;top:50%;transform:translateY(-50%);width:24px;height:24px;border-radius:50%;background:var(--bg3);color:var(--text2);font-size:14px;font-weight:600;cursor:pointer;align-items:center;justify-content:center">×</div>
+      </div>
       <div id="tournamentList"></div>
     </div>
 
@@ -2179,41 +2182,48 @@ function renderTournament() {
     return;
   }
 
-  const filter = normalizeName(document.getElementById('tournamentFilter')?.value || '');
+  const filterEl = document.getElementById('tournamentFilter');
+  const filter = normalizeName(filterEl?.value || '');
+  // Show/hide clear button
+  const clearBtn = document.getElementById('tournamentFilterClear');
+  if (clearBtn) clearBtn.style.display = filterEl?.value?.trim() ? 'flex' : 'none';
 
-  // Build player list sorted by toPar
-  let players = entries.map(([name, data]) => {
-    // Find team assignment + check manual WD status
+  // Build FULL player list (unfiltered) for rank computation
+  let allPlayers = entries.map(([name, data]) => {
     const draftedGolfer = S.golfers.find(g => normalizeName(g.name) === normalizeName(name));
     const team = draftedGolfer ? S.participants.find(p => p.id === draftedGolfer.participant_id) : null;
-    // Override ESPN status with manual WD if set
     const manualStatus = draftedGolfer ? golferStatus(draftedGolfer) : null;
     if (manualStatus === 'wd') data = { ...data, status: 'wd' };
     return { name, data, team: team ? team.name : null };
   });
 
-  if (filter) {
-    players = players.filter(p => normalizeName(p.name).includes(filter) || (p.team && normalizeName(p.team).includes(filter)));
-  }
-
-  players.sort((a, b) => a.data.toPar - b.data.toPar);
-
-  // Sort: active first, then cut, then WD
-  players.sort((a, b) => {
+  // Sort: active first by toPar, then cut, then WD
+  allPlayers.sort((a, b) => {
     const aOrder = a.data.status === 'wd' ? 2 : a.data.status === 'cut' ? 1 : 0;
     const bOrder = b.data.status === 'wd' ? 2 : b.data.status === 'cut' ? 1 : 0;
     if (aOrder !== bOrder) return aOrder - bOrder;
     return a.data.toPar - b.data.toPar;
   });
 
-  // Compute ranks — only show rank for first player at each score (PGA style)
-  let rank = 0, prevScore = null, shownRank = false;
-  players.forEach((p, i) => {
+  // Compute ranks on FULL list — rank stored on each player
+  let rank = 0, prevScore = null;
+  allPlayers.forEach((p, i) => {
     const isOut = p.data.status === 'wd' || p.data.status === 'cut';
-    if (!isOut && p.data.toPar !== prevScore) { rank = i + 1; prevScore = p.data.toPar; shownRank = false; }
+    if (!isOut && p.data.toPar !== prevScore) { rank = i + 1; prevScore = p.data.toPar; }
     p._rank = isOut ? 0 : rank;
-    p._showRank = !isOut && !shownRank;
-    if (!isOut && !shownRank) shownRank = true;
+  });
+
+  // Apply search filter
+  let players = filter
+    ? allPlayers.filter(p => normalizeName(p.name).includes(filter) || (p.team && normalizeName(p.team).includes(filter)))
+    : allPlayers;
+
+  // Compute _showRank on display list (show rank for first at each score)
+  let shownRanks = new Set();
+  players.forEach(p => {
+    const isOut = p.data.status === 'wd' || p.data.status === 'cut';
+    p._showRank = !isOut && !shownRanks.has(p._rank);
+    if (!isOut) shownRanks.add(p._rank);
   });
 
   function renderTournamentEntry(p) {
@@ -2289,10 +2299,30 @@ function renderTournament() {
   const favPlayers = players.filter(p => favNames.has(p.name));
   const restPlayers = players.filter(p => !favNames.has(p.name));
 
+  // Compute _showRank within favorites section (shared ranks like full leaderboard)
+  let favShownRanks = new Set();
+  favPlayers.forEach(p => {
+    const isOut = p.data.status === 'wd' || p.data.status === 'cut';
+    p._showRankFav = !isOut && !favShownRanks.has(p._rank);
+    if (!isOut) favShownRanks.add(p._rank);
+  });
+
   let html = '';
-  if (favPlayers.length > 0) {
+  if (favPlayers.length > 0 && !filter) {
+    const MAX_FAV_SHOW = 5;
+    const showAll = S._showAllFavs || favPlayers.length <= MAX_FAV_SHOW;
+    const visibleFavs = showAll ? favPlayers : favPlayers.slice(0, MAX_FAV_SHOW);
     html += '<div class="fav-divider">Favoriten</div>';
-    html += favPlayers.map(renderTournamentEntry).join('');
+    html += visibleFavs.map(p => {
+      const saved = p._showRank;
+      p._showRank = p._showRankFav;
+      const h = renderTournamentEntry(p);
+      p._showRank = saved;
+      return h;
+    }).join('');
+    if (!showAll) {
+      html += `<div style="text-align:center;padding:8px 0 4px"><span style="font-size:13px;color:var(--green);cursor:pointer;font-weight:500" onclick="S._showAllFavs=true;renderTournament()">Alle ${favPlayers.length} Favoriten zeigen</span></div>`;
+    }
     html += '<div class="fav-divider">Alle Spieler</div>';
   }
   html += restPlayers.map(renderTournamentEntry).join('');
