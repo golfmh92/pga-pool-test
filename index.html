@@ -377,7 +377,7 @@ body::before{content:'';position:fixed;inset:0;background:
     <div class="header-avatar" id="avatarBtn" onclick="toggleIdentityDropdown()">
       <span id="avatarText">?</span>
     </div>
-    <div class="header-title" id="headerTitle">Valero Texas Open</div>
+    <div class="header-title" id="headerTitle" onclick="const v=document.querySelector('.view.active');if(v)v.scrollTo({top:0,behavior:'smooth'})" style="cursor:pointer">Valero Texas Open</div>
     <div class="header-sub">April 2026</div>
     <div class="live-badge stale" id="liveBadge" style="display:none"><div class="live-dot"></div><span id="liveText">Live</span></div>
     <button class="header-admin" id="btnPush" style="right:16px;display:none" onclick="togglePushDropdown()">
@@ -618,7 +618,7 @@ body::before{content:'';position:fixed;inset:0;background:
           <div style="width:56px;height:56px;border-radius:50%;background:var(--gold);color:#fff;font-size:22px;font-weight:700;display:flex;align-items:center;justify-content:center;margin:0 auto;border:3px solid var(--gold)">S1</div>
         </div>
         <div style="font-family:var(--font-display);font-size:24px;color:var(--text);margin-bottom:8px">Dein Profil</div>
-        <div style="font-size:14px;color:var(--text2);line-height:1.6">Tippe oben links auf den Kreis und wähle deinen Namen aus. Dann siehst du deine Golfer oben in der Rangliste und sie werden im Leaderboard hervorgehoben.</div>
+        <div style="font-size:14px;color:var(--text2);line-height:1.6">Tippe oben links auf den Kreis und wähle deinen Namen aus. Dann siehst du deine Golfer oben in der Rangliste und sie werden im Leaderboard hervorgehoben. Tipp: Ein Klick auf den Turniertitel scrollt immer nach ganz oben.</div>
       </div>
       <!-- Slide 2: Rangliste -->
       <div class="tutorial-slide" style="min-width:100%;padding:40px 24px 24px;text-align:center">
