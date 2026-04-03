@@ -2632,7 +2632,7 @@ function selectFieldPlayer(name, el) {
 /* ===================== Live Scoring (ESPN) ===================== */
 function normalizeName(name) {
   return name.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase().replace(/[^a-z ]/g, '').replace(/\s+/g, ' ').trim();
+    .toLowerCase().replace(/[^a-z0-9 ]/g, '').replace(/\s+/g, ' ').trim();
 }
 
 function fuzzyMatch(text, query) {
