@@ -1319,7 +1319,7 @@ function renderAdmin() {
 
   const adminFilter = normalizeName(document.getElementById('adminFilter')?.value || '');
   let allGolfers = [...S.golfers].sort((a, b) => a.name.localeCompare(b.name));
-  if (adminFilter) allGolfers = allGolfers.filter(g => fuzzyMatch(g.name, adminFilter));
+  if (adminFilter) allGolfers = allGolfers.filter(g => normalizeName(g.name).includes(adminFilter));
 
   const adminHasVal = document.getElementById('adminFilter')?.value?.trim();
   let html = `<div style="position:relative;margin-bottom:12px">
@@ -1750,7 +1750,7 @@ function renderLeaderboard() {
   const lbFilterVal = normalizeName(lbFilterEl?.value || '');
   const lbClear = document.getElementById('lbFilterClear');
   if (lbClear) lbClear.style.display = lbFilterEl?.value?.trim() ? 'flex' : 'none';
-  const filteredRanking = lbFilterVal ? ranking.filter(t => fuzzyMatch(t.name, lbFilterVal)) : ranking;
+  const filteredRanking = lbFilterVal ? ranking.filter(t => normalizeName(t.name).includes(lbFilterVal)) : ranking;
 
   // Round tabs
   const days = ['Gesamt','Do','Fr','Sa','So'];
