@@ -393,7 +393,10 @@ body::before{content:'';position:fixed;inset:0;background:
     <!-- LEADERBOARD -->
     <div class="view active" id="viewLeaderboard">
       <div id="meineGolferSection"></div>
-      <input class="input" type="text" id="lbFilter" placeholder="Mitspieler suchen..." oninput="renderLeaderboard()" style="margin-bottom:12px;width:100%;display:block">
+      <div style="position:relative;margin-bottom:12px">
+        <input class="input" type="text" id="lbFilter" placeholder="Mitspieler suchen..." oninput="renderLeaderboard()" style="width:100%;display:block;padding-right:36px">
+        <div id="lbFilterClear" onclick="document.getElementById('lbFilter').value='';document.getElementById('lbFilter').blur();renderLeaderboard()" style="display:none;position:absolute;right:10px;top:50%;transform:translateY(-50%);width:24px;height:24px;border-radius:50%;background:var(--bg3);color:var(--text2);font-size:14px;font-weight:600;cursor:pointer;align-items:center;justify-content:center">×</div>
+      </div>
       <div class="round-tabs" id="lbRoundTabs"></div>
       <div id="leaderboardList"></div>
     </div>
@@ -1318,7 +1321,11 @@ function renderAdmin() {
   let allGolfers = [...S.golfers].sort((a, b) => a.name.localeCompare(b.name));
   if (adminFilter) allGolfers = allGolfers.filter(g => normalizeName(g.name).includes(adminFilter));
 
-  let html = '<input class="input" type="text" id="adminFilter" placeholder="Spieler suchen..." oninput="renderAdmin()" style="margin-bottom:12px;width:100%;display:block">';
+  const adminHasVal = document.getElementById('adminFilter')?.value?.trim();
+  let html = `<div style="position:relative;margin-bottom:12px">
+    <input class="input" type="text" id="adminFilter" placeholder="Spieler suchen..." oninput="renderAdmin()" style="width:100%;display:block;padding-right:36px">
+    <div onclick="document.getElementById('adminFilter').value='';document.getElementById('adminFilter').blur();renderAdmin()" style="display:${adminHasVal ? 'flex' : 'none'};position:absolute;right:10px;top:50%;transform:translateY(-50%);width:24px;height:24px;border-radius:50%;background:var(--bg3);color:var(--text2);font-size:14px;font-weight:600;cursor:pointer;align-items:center;justify-content:center">×</div>
+  </div>`;
 
   for (const g of allGolfers) {
     const team = S.participants.find(p => p.id === g.participant_id);
@@ -1739,7 +1746,10 @@ function renderLeaderboard() {
 
 
   // Filter by search (normalize to match accented names like Åberg/Âberg)
-  const lbFilterVal = normalizeName(document.getElementById('lbFilter')?.value || '');
+  const lbFilterEl = document.getElementById('lbFilter');
+  const lbFilterVal = normalizeName(lbFilterEl?.value || '');
+  const lbClear = document.getElementById('lbFilterClear');
+  if (lbClear) lbClear.style.display = lbFilterEl?.value?.trim() ? 'flex' : 'none';
   const filteredRanking = lbFilterVal ? ranking.filter(t => normalizeName(t.name).includes(lbFilterVal)) : ranking;
 
   // Round tabs
@@ -2308,24 +2318,29 @@ function renderTournament() {
   });
 
   let html = '';
-  if (favPlayers.length > 0 && !filter) {
-    const MAX_FAV_SHOW = 5;
-    const showAll = S._showAllFavs || favPlayers.length <= MAX_FAV_SHOW;
-    const visibleFavs = showAll ? favPlayers : favPlayers.slice(0, MAX_FAV_SHOW);
-    html += '<div class="fav-divider">Favoriten</div>';
-    html += visibleFavs.map(p => {
-      const saved = p._showRank;
-      p._showRank = p._showRankFav;
-      const h = renderTournamentEntry(p);
-      p._showRank = saved;
-      return h;
-    }).join('');
-    if (!showAll) {
-      html += `<div style="text-align:center;padding:8px 0 4px"><span style="font-size:13px;color:var(--green);cursor:pointer;font-weight:500" onclick="S._showAllFavs=true;renderTournament()">Alle ${favPlayers.length} Favoriten zeigen</span></div>`;
+  if (filter) {
+    // During search: show all matching players in one flat list
+    html += players.map(renderTournamentEntry).join('');
+  } else {
+    if (favPlayers.length > 0) {
+      const MAX_FAV_SHOW = 5;
+      const showAll = S._showAllFavs || favPlayers.length <= MAX_FAV_SHOW;
+      const visibleFavs = showAll ? favPlayers : favPlayers.slice(0, MAX_FAV_SHOW);
+      html += '<div class="fav-divider">Favoriten</div>';
+      html += visibleFavs.map(p => {
+        const saved = p._showRank;
+        p._showRank = p._showRankFav;
+        const h = renderTournamentEntry(p);
+        p._showRank = saved;
+        return h;
+      }).join('');
+      if (!showAll) {
+        html += `<div style="text-align:center;padding:8px 0 4px"><span style="font-size:13px;color:var(--green);cursor:pointer;font-weight:500" onclick="S._showAllFavs=true;renderTournament()">Alle ${favPlayers.length} Favoriten zeigen</span></div>`;
+      }
+      html += '<div class="fav-divider">Alle Spieler</div>';
     }
-    html += '<div class="fav-divider">Alle Spieler</div>';
+    html += restPlayers.map(renderTournamentEntry).join('');
   }
-  html += restPlayers.map(renderTournamentEntry).join('');
 
   list.innerHTML = html;
 }
