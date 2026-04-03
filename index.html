@@ -2790,8 +2790,8 @@ async function fetchLiveScores() {
 
     S.liveScores = scores;
     S.liveLastUpdate = new Date();
-    // Only show "Live" if at least one player is currently mid-round (not finished)
-    const anyonePlaying = Object.values(scores).some(s => !s.finished && s.currentRound > 0);
+    // Show "Live" only when ESPN says event is "in" AND at least one player is mid-round
+    const anyonePlaying = S.tournamentLive && Object.values(scores).some(s => !s.finished && s.currentRound > 0);
     S.liveActive = anyonePlaying;
     updateLiveBadge(anyonePlaying);
     applyLiveScores();
@@ -2818,19 +2818,26 @@ function applyLiveScores() {
 function updateLiveBadge(active) {
   const badge = document.getElementById('liveBadge');
   const text = document.getElementById('liveText');
-  if (!S.liveActive && !active) {
+  // Hide badge before tournament or after it's finished
+  if (!S.tournamentLive && !S.tournamentFinished && new Date() < TOURNAMENT_START) {
     badge.style.display = 'none';
+    return;
+  }
+  if (S.tournamentFinished) {
+    badge.style.display = 'inline-flex';
+    badge.classList.add('stale');
+    text.textContent = 'Beendet';
     return;
   }
   badge.style.display = 'inline-flex';
   if (active && S.liveLastUpdate) {
-    const ago = Math.round((Date.now() - S.liveLastUpdate.getTime()) / 1000);
     badge.classList.remove('stale');
-    if (ago < 10) text.textContent = 'Live';
-    else text.textContent = `Aktualisiert vor ${ago < 60 ? ago + 's' : Math.round(ago/60) + 'min'}`;
-  } else {
+    text.textContent = 'Live';
+  } else if (S.tournamentLive) {
     badge.classList.add('stale');
-    text.textContent = 'Offline';
+    text.textContent = 'Pause';
+  } else {
+    badge.style.display = 'none';
   }
 }
 
