@@ -2195,7 +2195,25 @@ function renderTournament() {
     list.innerHTML = '<div class="empty"><div class="empty-icon">&#9971;</div><h3>Turnier beginnt am Do, 2. April</h3><p>Ab Donnerstag werden hier die Live-Scores der Valero Texas Open angezeigt.</p></div>';
     return;
   }
-  const entries = Object.entries(S.liveScores);
+  let entries = Object.entries(S.liveScores);
+  // Fallback: if no ESPN data but frozen scores exist, build leaderboard from Supabase data
+  if (entries.length === 0 && S.scores.length > 0 && localStorage.getItem('pga_test_frozen')) {
+    const synthScores = {};
+    for (const g of S.golfers) {
+      const rounds = {};
+      let totalPar = 0;
+      let hasScores = false;
+      for (let r = 1; r <= 4; r++) {
+        const sc = S.scores.find(s => s.golfer_id === g.id && s.round === r);
+        if (sc && sc.score > 0) { rounds['r' + r] = sc.score; totalPar += sc.score - PAR; hasScores = true; }
+      }
+      if (hasScores) {
+        synthScores[g.name] = { ...rounds, toPar: totalPar, status: g.made_cut ? 'active' : 'cut', finished: true, currentRound: 0, thru: '', madeCut: g.made_cut, headshot: '' };
+      }
+    }
+    S.liveScores = synthScores;
+    entries = Object.entries(synthScores);
+  }
   if (entries.length === 0) {
     list.innerHTML = '<div class="empty"><div class="empty-icon">&#9971;</div><h3>Keine Live-Daten</h3><p>Das Turnier hat noch nicht begonnen oder die Daten werden geladen.</p></div>';
     return;
@@ -2797,11 +2815,46 @@ async function fetchLiveScores() {
     applyLiveScores();
     // Preload headshot images in background
     Object.values(scores).forEach(s => { if (s.headshot) { new Image().src = s.headshot; } });
+    // Freeze final scores to Supabase when tournament ends
+    if (S.tournamentFinished && !localStorage.getItem('pga_test_frozen')) {
+      freezeFinalScores();
+    }
     render();
   } catch (err) {
     console.warn('Live scoring fetch failed:', err);
     updateLiveBadge(false);
   }
+}
+
+async function freezeFinalScores() {
+  // Save all ESPN round scores to Supabase so they persist after ESPN moves to next event
+  const upserts = [];
+  for (const g of S.golfers) {
+    const live = matchGolferToLive(g.name);
+    if (!live) continue;
+    // Save round scores
+    for (let r = 1; r <= 4; r++) {
+      const sc = live['r' + r];
+      if (!sc) continue;
+      // Skip if manual score already exists
+      const existing = S.scores.find(s => s.golfer_id === g.id && s.round === r);
+      if (existing) continue;
+      upserts.push({ golfer_id: g.id, round: r, score: sc, user_id: 'auto-freeze' });
+    }
+    // Update made_cut based on ESPN data
+    if (live.status === 'cut' && g.made_cut) {
+      await sb.from('pga_test_golfers').update({ made_cut: false }).eq('id', g.id);
+    }
+  }
+  if (upserts.length > 0) {
+    await sb.from('pga_test_scores').insert(upserts);
+  }
+  localStorage.setItem('pga_test_frozen', '1');
+  // Reload scores from Supabase
+  await loadAll();
+  applyLiveScores();
+  render();
+  console.log('Tournament scores frozen to Supabase:', upserts.length, 'scores saved');
 }
 
 function applyLiveScores() {
