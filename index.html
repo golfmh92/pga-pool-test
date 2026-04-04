@@ -2811,9 +2811,11 @@ async function fetchLiveScores() {
     }
 
     // Auto-detect cut: Top CUT_TOP + Ties (amateurs don't count toward spots)
+    // Only calculate when ALL players have completed R2 (nobody mid-round)
     const allScores = Object.values(scores);
+    const anyoneMidRound = allScores.some(s => !s.finished && s.currentRound > 0);
     const withR2 = allScores.filter(s => s.r1 && s.r2);
-    if (withR2.length > CUT_TOP) {
+    if (!anyoneMidRound && withR2.length > CUT_TOP) {
       const sorted = [...withR2].sort((a, b) => a.toPar - b.toPar);
       let proCount = 0;
       let cutScore = null;
