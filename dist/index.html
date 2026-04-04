@@ -927,7 +927,7 @@ async function loadAll() {
 /* ===================== Scoring Logic ===================== */
 function getGolferScore(golferId, round) {
   // Priority: manual Supabase score > live ESPN score
-  const manual = S.scores.find(x => x.golfer_id === golferId && x.round === round);
+  const manual = S.scores.find(x => x.golfer_id === golferId && x.round === round && x.score > 0);
   if (manual) return manual.score;
   // Fallback: live ESPN data
   const golfer = S.golfers.find(g => g.id === golferId);
@@ -981,10 +981,11 @@ function calcTeamTotal(participantId) {
 
 // Returns 'active', 'cut', 'wd', or 'dq'
 function golferStatus(g) {
-  // 1. Manual DQ: score of -1 in R1 = DQ marker
   if (!g.made_cut) {
     const dqMarker = S.scores.some(s => s.golfer_id === g.id && s.score === -1);
     if (dqMarker) return 'dq';
+    const wdMarker = S.scores.some(s => s.golfer_id === g.id && s.score === -2);
+    if (wdMarker) return 'wd';
     const hasScores = S.scores.some(s => s.golfer_id === g.id && s.score > 0);
     const hasLiveScores = g._live && (g._live.r1 || g._live.r2);
     return (hasScores || hasLiveScores) ? 'cut' : 'wd';
@@ -1371,13 +1372,15 @@ async function setGolferStatus(golferId, status) {
   const { error } = await sb.from('pga_test_golfers').update({ made_cut: madeCut }).eq('id', golferId);
   if (error) { showToast('Fehler: ' + error.message); return; }
 
-  // DQ marker: score -1 in round 1
+  // DQ marker: score -1 in R1, WD marker: score -2 in R1
+  // First remove any existing DQ/WD marker
+  const existingMarker = S.scores.find(s => s.golfer_id === golferId && s.round === 1 && (s.score === -1 || s.score === -2));
+  if (existingMarker) await sb.from('pga_test_scores').delete().eq('id', existingMarker.id);
+  // Then set new marker if needed
   if (status === 'dq') {
-    await sb.from('pga_test_scores').upsert({ golfer_id: golferId, round: 1, score: -1, user_id: S.userId }, { onConflict: 'golfer_id,round' });
-  } else {
-    // Remove DQ marker if exists
-    const existing = S.scores.find(s => s.golfer_id === golferId && s.round === 1 && s.score === -1);
-    if (existing) await sb.from('pga_test_scores').delete().eq('id', existing.id);
+    await sb.from('pga_test_scores').insert({ golfer_id: golferId, round: 1, score: -1, user_id: S.userId });
+  } else if (status === 'wd') {
+    await sb.from('pga_test_scores').insert({ golfer_id: golferId, round: 1, score: -2, user_id: S.userId });
   }
 
   // Update local state
