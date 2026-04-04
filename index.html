@@ -807,6 +807,7 @@ const PAR = 71; // TPC San Antonio (Oaks Course)
 const ENTRY_FEE = 20;
 const ESPN_GOLF_URL = 'https://site.api.espn.com/apis/site/v2/sports/golf/pga/scoreboard';
 const TOURNAMENT_START = new Date('2026-04-02T00:00:00'); // Valero Texas Open, Do 2. April
+const CUT_TOP = 65; // Top 65 + Ties (PGA Tour Standard), Masters: 50
 const LIVE_REFRESH_MS = 30000; // 30 seconds when live
 const IDLE_REFRESH_MS = 600000; // 10 minutes when not playing
 
@@ -2738,8 +2739,10 @@ async function fetchLiveScores() {
 
     for (const c of competitors) {
       const athlete = c.athlete || {};
-      const name = athlete.displayName || athlete.shortName || '';
-      if (!name) continue;
+      const rawName = athlete.displayName || athlete.shortName || '';
+      if (!rawName) continue;
+      const isAmateur = /\(a\)\s*$/.test(rawName);
+      const name = rawName.replace(/\s*\(a\)\s*$/, '');
 
       const linescores = c.linescores || [];
       const roundScores = {};
@@ -2787,11 +2790,11 @@ async function fetchLiveScores() {
       const totalToPar = c.score === 'E' ? 0 : parseInt(c.score) || 0;
       const thru = statusThru || thruHoles;
 
-      // Detect missed cut: 2 rounds with scores, no R3/R4
-      // WD/DQ: handled manually via Admin panel
+      // Detect missed cut (fallback): ESPN status or old linescore heuristic
       const maxRounds = linescores.length;
       const completedRounds = Object.keys(roundScores).filter(k => !k.includes('toPar')).length;
-      const isCut = maxRounds <= 2 && completedRounds >= 2 && currentRound === 0 && finished;
+      const isCut = (statusType && statusType.toLowerCase() === 'cut') ||
+                    (maxRounds <= 2 && completedRounds >= 2 && currentRound === 0 && finished);
 
       scores[name] = {
         ...roundScores,
@@ -2800,10 +2803,31 @@ async function fetchLiveScores() {
         thru: thru,
         status: isCut ? 'cut' : statusType,
         madeCut: !isCut,
+        _amateur: isAmateur,
         currentRound,
         finished: finished,
         headshot: c.id ? `https://a.espncdn.com/combiner/i?img=/i/headshots/golf/players/full/${c.id}.png&w=96&h=70` : ''
       };
+    }
+
+    // Auto-detect cut: Top CUT_TOP + Ties (amateurs don't count toward spots)
+    const allScores = Object.values(scores);
+    const withR2 = allScores.filter(s => s.r1 && s.r2);
+    if (withR2.length > CUT_TOP) {
+      const sorted = [...withR2].sort((a, b) => a.toPar - b.toPar);
+      let proCount = 0;
+      let cutScore = null;
+      for (const s of sorted) {
+        if (!s._amateur) proCount++;
+        if (proCount === CUT_TOP) { cutScore = s.toPar; break; }
+      }
+      if (cutScore === null) cutScore = sorted[sorted.length - 1].toPar;
+      for (const [n, s] of Object.entries(scores)) {
+        if (s.r1 && s.r2 && s.toPar > cutScore && s.status !== 'cut') {
+          s.status = 'cut';
+          s.madeCut = false;
+        }
+      }
     }
 
     S.liveScores = scores;
@@ -2822,6 +2846,7 @@ async function fetchLiveScores() {
     render();
   } catch (err) {
     console.warn('Live scoring fetch failed:', err);
+    S.liveActive = false;
     updateLiveBadge(false);
   }
 }
@@ -2863,7 +2888,11 @@ function applyLiveScores() {
     if (!live) continue;
     g._live = live;
     g._liveMatched = true;
-    if (live.status === 'cut' && g.made_cut) g._liveCut = true;
+    if (live.status === 'cut' && g.made_cut) {
+      g._liveCut = true;
+      g.made_cut = false;
+      sb.from('pga_test_golfers').update({ made_cut: false }).eq('id', g.id);
+    }
   }
 }
 
@@ -2886,6 +2915,9 @@ function updateLiveBadge(active) {
   if (active && S.liveLastUpdate) {
     badge.classList.remove('stale');
     text.textContent = 'Live';
+  } else if (S.tournamentLive) {
+    badge.classList.add('stale');
+    text.textContent = 'Pause';
   } else {
     badge.style.display = 'none';
   }
